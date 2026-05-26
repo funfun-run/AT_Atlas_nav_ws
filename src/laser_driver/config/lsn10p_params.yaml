@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    # LiDAR serial port
+    port: "/dev/ttyUSB0"
+    baud_rate: 460800
+
+    # Frame ID for laser scan
+    frame_id: "laser_frame"
+
+    # Scan parameters
+    angle_min: -1.570796  # -pi/2
+    angle_max: 1.570796   # pi/2
+    range_min: 0.05
+    range_max: 30.0
+    angle_increment: 0.004363323  # ~0.25 degrees
+
+    # Publish rate (Hz)
+    scan_frequency: 10.0
+
+    # Inverted scan flag
+    inverted: false
