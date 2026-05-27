@@ -98,8 +98,16 @@ ros2 service call /fsm_event competition_fsm/srv/FsmEvent \
 - [x] Nav2 参数配置 + 行为树
 - [x] 比赛地图 + 区域定义
 - [x] 项目架构设计文档
-- [x] 实现计划（13 任务）
-- [ ] Cartographer 配置（Task 3）
-- [ ] mission_manager 增强（Task 5-7）
-- [ ] competition_fsm 包（Task 8-11）
-- [ ] robot_startup 总 launch（Task 12）
+- [x] 实现计划（13 任务全部完成）
+- [x] Cartographer 配置
+- [x] mission_manager 增强（NavigateToZone action + waypoint_loader）
+- [x] competition_fsm 包（状态机 + cmd_vel 仲裁 + /fsm_event service）
+- [x] robot_startup 总 launch
+
+## 部署前待办
+
+详见 [`docs/TODO-before-deployment.md`](docs/TODO-before-deployment.md)。关键项：
+- Zone 名称与 map.yaml 对齐
+- LiDAR `frame_id` 与 URDF 统一
+- 生成 `.pbstream` 地图
+- 接入里程计 `/odom`

@@ -16,7 +16,7 @@ source install/setup.bash
 
 # Run a single Python node directly (after build)
 ros2 run mission_manager mission_manager
-ros2 run competition_fsm competition_fsm
+ros2 run competition_fsm competition_fsm_node
 
 # Test FSM state transitions
 python3 -c "
@@ -59,16 +59,16 @@ robot_description ──► robot_startup (top-level bringup)
 ### Package Details
 
 - **`robot_description`** — URDF model. Cylinder `base_link` + fixed `laser_frame` joint. [HW_CONFIG] annotations mark physical dimensions for adjustment.
-- **`lslidar_driver`** — Fully implemented C++ Leishen LiDAR driver (X10/CH/CX/LS series). Publishes `sensor_msgs/LaserScan` to `/scan`.
+- **`lslidar_driver`** — Fully implemented C++ Leishen LiDAR driver (X10/CH/CX/LS series). Publishes `sensor_msgs/LaserScan` to `/scan`. **Known issue:** frame_id is `"laser"`, URDF uses `"laser_frame"` — must align before Cartographer/Nav2 can consume scan data (see `docs/TODO-before-deployment.md`).
 - **`lslidar_msgs`** — Custom ROS2 messages and services for lslidar_driver.
 - **`at_nav2`** — Nav2 bringup config + Cartographer pure localization. Contains:
   - `config/at_nav2_params.yaml` — Nav2 parameters (planner, controller, costmaps, smoother, velocity_smoother)
   - `config/bt_navigator.xml` — Custom behavior tree (ComputePathToPose → FollowPath)
-  - `config/cartographer_localization.lua` — Cartographer pure localization config (to be created per plan)
+  - `config/cartographer_localization.lua` — Cartographer pure localization config
   - `launch/at_nav.launch.py` — Wraps `nav2_bringup/bringup_launch.py` with Cartographer node
   - `maps/map.yaml` + `map.pgm` — Competition arena map with zone definitions
 - **`mission_manager`** (Python) — `NavigateToZone` action server. Loads waypoints from `map.yaml` zones, wraps `NavigateToPose` action client. Entry point: `mission_manager` console script.
-- **`competition_fsm`** (Python, to be created) — Competition state machine. Manages MANUAL↔AUTONOMOUS switching, orchestrates task sequence, arbitrates `/cmd_vel` between teleop and Nav2, hosts `/fsm_event` service for external team communication.
+- **`competition_fsm`** (Python) — Competition state machine. Manages MANUAL↔AUTONOMOUS switching, orchestrates task sequence, arbitrates `/cmd_vel` between teleop and Nav2 (publishes to `/motor_cmd_vel`), hosts `/fsm_event` service for external team communication. Built with `ament_cmake` + `ament_cmake_python` for rosidl service generation.
 - **`robot_startup`** — Top-level bringup launch. Composes all nodes: LiDAR driver, Cartographer, Nav2, mission_manager, competition_fsm.
 
 ### TF Tree
@@ -97,7 +97,20 @@ map ──► odom ──► base_link ──► laser_frame
 - `docs/superpowers/specs/2026-05-27-competition-nav-architecture-design.md` — Architecture decision record
 - `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md` — Implementation plan (13 tasks)
 
-## Implementation Plan Status
+## Implementation Status
 
-Implementation follows `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md`.
-Task order: Tasks 1-4 (at_nav2 config) → Tasks 5-7 (mission_manager) → Tasks 8-11 (competition_fsm) → Task 12 (robot_startup) → Task 13 (full build).
+All 13 tasks complete. All packages build and launch successfully.
+
+- [x] Tasks 1-4: at_nav2 config (costmap, Cartographer, launch)
+- [x] Tasks 5-7: mission_manager (NavigateToZone action, waypoint loader, action server)
+- [x] Tasks 8-11: competition_fsm (package, FSM core, fsm_node, entry point)
+- [x] Task 12: robot_startup (total launch)
+- [x] Task 13: full workspace build (7/7 packages)
+
+## Known Issues (Pre-Deployment)
+
+See `docs/TODO-before-deployment.md` for full checklist. Critical items:
+- Zone names in `ZONE_TO_STATE` don't match map.yaml (待派送区/园区1/园区2 are no_go_zone, not task_area)
+- LiDAR frame_id `"laser"` vs URDF `"laser_frame"` mismatch
+- Missing `.pbstream` map for Cartographer
+- Missing `/odom` + `odom→base_link` TF (odom_driver by other team)
