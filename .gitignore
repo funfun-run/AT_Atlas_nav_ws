@@ -7,9 +7,17 @@ log/
 __pycache__/
 *.pyc
 *.pyo
+*.pyi
 *.egg-info/
 dist/
 *.egg
+.mypy_cache/
+.ruff_cache/
+
+# C++ compilation artifacts
+*.o
+*.so
+*.a
 
 # IDE / Editor
 .vscode/
@@ -29,8 +37,7 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# ROS2
-*.log
-
-# Claude local settings
+# Claude Code (generated)
+.agents/
 .claude/settings.local.json
+skills-lock.json
