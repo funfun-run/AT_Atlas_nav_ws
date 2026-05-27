@@ -16,6 +16,14 @@ if(NOT TARGET ament_cmake_python_build_${PROJECT_NAME}_egg)
   ament_python_install_package(mission_manager)
 endif()
 
+# Install Python source modules alongside rosidl-generated package
+install(FILES
+  mission_manager/__init__.py
+  mission_manager/mission_manager.py
+  mission_manager/waypoint_loader.py
+  DESTINATION local/lib/python3.10/dist-packages/mission_manager
+)
+
 # Install console script
 install(PROGRAMS
   scripts/mission_manager
