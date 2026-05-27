@@ -2,26 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>at_nav2</name>
-  <version>0.0.0</version>
-  <description>Nav2 bringup with custom parameter overrides</description>
-  <maintainer email="1219921425@qq.com">funfun</maintainer>
+  <version>0.0.1</version>
+  <description>Navigation2 configuration and launch for AGT</description>
+  <maintainer email="dev@agt.com">AGT Dev Team</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <depend>nav2_bringup</depend>
-  <depend>nav2_common</depend>
-  <depend>navigation2</depend>
-  <depend>nav2_planner</depend>
-  <depend>nav2_controller</depend>
-  <depend>nav2_bt_navigator</depend>
-  <depend>nav2_costmap_2d</depend>
-  <depend>nav2_map_server</depend>
-  <depend>nav2_amcl</depend>
-  <depend>nav2_lifecycle_manager</depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_planner</exec_depend>
+  <exec_depend>nav2_controller</exec_depend>
+  <exec_depend>nav2_costmap_2d</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
