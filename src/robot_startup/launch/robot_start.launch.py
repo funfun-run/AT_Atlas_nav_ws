@@ -45,7 +45,7 @@ def generate_launch_description():
     # ── 4. competition_fsm ──
     fsm_node = Node(
         package='competition_fsm',
-        executable='competition_fsm',
+        executable='competition_fsm_node',
         name='competition_fsm',
         output='screen',
     )
