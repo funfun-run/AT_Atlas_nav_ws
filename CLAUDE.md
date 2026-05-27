@@ -14,66 +14,90 @@ colcon build --symlink-install --packages-select <package_name>
 # Source the workspace
 source install/setup.bash
 
-# Run linters on a package
-colcon test --packages-select <package_name>
-cat build/<package_name>/test_results/<package_name>/linter_results.txt
-
 # Run a single Python node directly (after build)
 ros2 run mission_manager mission_manager
+ros2 run competition_fsm competition_fsm
+
+# Test FSM state transitions
+python3 -c "
+from competition_fsm.fsm import CompetitionFsm, FsmState
+import logging
+f = CompetitionFsm(logging.getLogger('test'))
+f.switch_to(FsmState.GO_TRANSIT)
+f.on_arrived()
+assert f.state == FsmState.AT_TRANSIT
+print('FSM test passed')
+"
 ```
 
 ## Architecture
 
-This is a ROS2 (Humble) colcon workspace for the **Omnibot** — a differential-drive robot using Nav2 for autonomous navigation with a Leishen LSN10P 2D LiDAR.
+This is a ROS2 (Humble) colcon workspace for **AGT** — a holonomic (steering-wheel) competition robot using Nav2 for autonomous navigation with a Leishen LSN10P 2D LiDAR and Cartographer for localization.
+
+### Competition Flow
+
+```
+Manual remote control → Enter start zone → Button/voice switch → Autonomous task sequence:
+  中转区 (read task) → 待派送区 (pickup) → 园区1 (deliver) → 园区2 (deliver) → Done
+```
 
 ### Package Dependency Graph
 
 ```
 robot_description ──► robot_startup (top-level bringup)
                                  │
-           ┌─────────────────────┼─────────────────────┐
-           ▼                     ▼                     ▼
-    lslidar_driver           at_nav2             odom_driver
-   (LSN10 LiDAR)         (Nav2 bringup)         (chassis/odo)
-           │                     │
-           ▼                     ▼
-    lslidar_msgs          mission_manager
-  (custom msg/srv)       (Python, Nav2 action client)
+         ┌───────────────────────┼────────────────────────┐
+         ▼                       ▼                        ▼
+  lslidar_driver              at_nav2            competition_fsm
+ (LSN10 2D LiDAR)    (Cartographer + Nav2)    (state machine)
+         │                       │                        │
+         ▼                       ▼                        ▼
+  lslidar_msgs            mission_manager          (camera/arm
+ (custom msg/srv)    (NavigateToZone action)      external teams)
 ```
 
 ### Package Details
 
-- **`robot_description`** — URDF model. Single `base_link` cylinder (r=0.2m) with a fixed `laser_frame` joint (offset x=0.1m, z=0.15m). No wheels in URDF. Installs URDF to share.
-- **`lslidar_driver`** — Fully implemented C++ Leishen LiDAR driver (X10/CH/CX/LS series). Multi-threaded executor, supports both UART and Ethernet. Config at `config/lslidar_n10p_uart.yaml` and `config/lslidar_n10p_net.yaml`. Publishes `sensor_msgs/PointCloud2` to `lslidar_point_cloud` and (optionally) `sensor_msgs/LaserScan` to `/scan`. Key deps: PCL, libpcap, Boost.
-- **`lslidar_msgs`** — Custom ROS2 messages and services for lslidar_driver. Defines `LslidarPacket.msg`, `LslidarInformation.msg`, and 12 service definitions (motor control, power control, time mode, frame rate, etc.).
-- **`odom_driver`** — C++ node for chassis serial communication and odometry publishing (skeleton — source commented out). Expected to publish `odom`→`base_link` transform and `nav_msgs/Odometry`.
-- **`at_nav2`** — Nav2 bringup config package. The single `config/nav2_params.yaml` defines:
-  - **Planner**: `nav2_navfn_planner/NavfnPlanner` (Dijkstra, not A*)
-  - **Controller**: `dwb_core::DWBLocalPlanner` with 7 critics, max linear/angular = 0.26 m/s, 1.0 rad/s
-  - **Localization**: AMCL with likelihood_field model, 500–2000 particles, differential drive model
-  - **Costmaps**: global (map frame, 1Hz) and local (odom frame, rolling 3m×3m, 5Hz), both obstacle layer subscribed to `/scan`
-  - **Behavior Tree**: uses default Nav2 BT plugins (no custom XML; `bt_xml_filename` is empty, Nav2 fallback behavior applies)
-- **`map_server`** — Wrapper around `nav2_map_server`. `maps/` directory exists but currently empty (map file to be added).
-- **`mission_manager`** (Python) — A `MissionManager` node that wraps `NavigateToPose` action client with feedback/goal-response/result callbacks. Entry point: `mission_manager` console script.
-- **`robot_startup`** — Intended top-level bringup launch package. `launch/robot_start.launch.py` is a minimal stub (work in progress).
+- **`robot_description`** — URDF model. Cylinder `base_link` + fixed `laser_frame` joint. [HW_CONFIG] annotations mark physical dimensions for adjustment.
+- **`lslidar_driver`** — Fully implemented C++ Leishen LiDAR driver (X10/CH/CX/LS series). Publishes `sensor_msgs/LaserScan` to `/scan`.
+- **`lslidar_msgs`** — Custom ROS2 messages and services for lslidar_driver.
+- **`at_nav2`** — Nav2 bringup config + Cartographer pure localization. Contains:
+  - `config/at_nav2_params.yaml` — Nav2 parameters (planner, controller, costmaps, smoother, velocity_smoother)
+  - `config/bt_navigator.xml` — Custom behavior tree (ComputePathToPose → FollowPath)
+  - `config/cartographer_localization.lua` — Cartographer pure localization config (to be created per plan)
+  - `launch/at_nav.launch.py` — Wraps `nav2_bringup/bringup_launch.py` with Cartographer node
+  - `maps/map.yaml` + `map.pgm` — Competition arena map with zone definitions
+- **`mission_manager`** (Python) — `NavigateToZone` action server. Loads waypoints from `map.yaml` zones, wraps `NavigateToPose` action client. Entry point: `mission_manager` console script.
+- **`competition_fsm`** (Python, to be created) — Competition state machine. Manages MANUAL↔AUTONOMOUS switching, orchestrates task sequence, arbitrates `/cmd_vel` between teleop and Nav2, hosts `/fsm_event` service for external team communication.
+- **`robot_startup`** — Top-level bringup launch. Composes all nodes: LiDAR driver, Cartographer, Nav2, mission_manager, competition_fsm.
 
-### TF Tree (expected)
+### TF Tree
 
 ```
 map ──► odom ──► base_link ──► laser_frame
-(AMCL)   (driver)   (URDF)      (URDF fixed joint)
+(Carto)  (chassis)  (URDF)      (URDF fixed joint)
 ```
 
-**Note:** The LiDAR driver config sets `frame_id: "laser"` while the URDF defines the link as `laser_frame`. This mismatch needs to be resolved before Nav2 can consume scan data correctly.
-
-### Key Parameters
+### Key Parameters (see `at_nav2_params.yaml` for all [HW_CONFIG] values)
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| `robot_radius` | 0.22 m | In both costmaps |
-| `controller_frequency` | 20 Hz | DWB control loop |
-| `max_vel_x` / `max_vel_y` | 0.26 m/s | Differential drive |
-| `max_vel_theta` | 1.0 rad/s | |
-| `inflation_radius` | 0.55 m | 2.5× robot radius |
+| `robot_radius` | 0.35 m | Both costmaps |
+| `controller` | RegulatedPurePursuit | Not DWB |
+| `desired_linear_vel` | 0.3 m/s | |
+| `max_velocity` | [0.5, 0.5, 1.0] | Holonomic: vy enabled |
 | `xy_goal_tolerance` | 0.25 m | |
 | `yaw_goal_tolerance` | 0.25 rad | |
+| `inflation_radius` | 0.5–0.6 m | |
+| `observation_source` | `/scan` (LaserScan) | 2D LiDAR |
+| `odom_topic` | `/odom` | |
+
+## Design Docs
+
+- `docs/superpowers/specs/2026-05-27-competition-nav-architecture-design.md` — Architecture decision record
+- `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md` — Implementation plan (13 tasks)
+
+## Implementation Plan Status
+
+Implementation follows `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md`.
+Task order: Tasks 1-4 (at_nav2 config) → Tasks 5-7 (mission_manager) → Tasks 8-11 (competition_fsm) → Task 12 (robot_startup) → Task 13 (full build).
