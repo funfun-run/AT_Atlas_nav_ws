@@ -12,6 +12,7 @@
   <exec_depend>nav2_planner</exec_depend>
   <exec_depend>nav2_controller</exec_depend>
   <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>cartographer_ros</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
