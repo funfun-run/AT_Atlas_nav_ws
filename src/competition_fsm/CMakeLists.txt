@@ -15,6 +15,14 @@ if(NOT TARGET ament_cmake_python_build_${PROJECT_NAME}_egg)
   )
 endif()
 
+# Install Python source modules alongside rosidl-generated package
+install(FILES
+  competition_fsm/__init__.py
+  competition_fsm/fsm.py
+  competition_fsm/fsm_node.py
+  DESTINATION local/lib/python3.10/dist-packages/competition_fsm
+)
+
 install(PROGRAMS
   scripts/competition_fsm_node
   DESTINATION lib/${PROJECT_NAME}
