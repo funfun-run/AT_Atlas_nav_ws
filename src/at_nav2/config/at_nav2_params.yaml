@@ -74,7 +74,7 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001  # [HW_CONFIG] 全向底盘 vy 有控制量，阈值应 > 0
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.5  # [HW_CONFIG] 允许控制失败的容忍时间(秒)
+    failure_tolerance: 1.5  # [HW_CONFIG] 允许控制失败的容忍时间(秒)
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
@@ -90,21 +90,21 @@ controller_server:
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"            # 使用 DWB 本地规划器（Dynamic Window Approach）
       debug_trajectory_details: True                 # 是否输出/发布轨迹调试信息
-      min_vel_x: 0.0                                 # 最小前进速度 (m/s)
-      min_vel_y: 0.0                                 # 最小侧向速度 (m/s)，全向底盘有效
-      max_vel_x: 0.26                                # 最大前进速度 (m/s)
-      max_vel_y: 0.0                                 # 最大侧向速度 (m/s)，全向底盘无效
+      min_vel_x: -1.5                                # 最小前进速度 (m/s)
+      min_vel_y: -1.5                                # 最小侧向速度 (m/s)，全向底盘有效
+      max_vel_x: 1.5                                 # 最大前进速度 (m/s)
+      max_vel_y: 1.5                                 # 最大侧向速度 (m/s)，全向底盘有效
       max_vel_theta: 1.0                             # 最大角速度 (rad/s)
       min_speed_xy: 0.0                              # 最小平面速度 (m/s)
-      max_speed_xy: 0.26                             # 最大平面速度 (m/s)
+      max_speed_xy: 2.0                              # 最大平面速度 (m/s)
       min_speed_theta: 0.0                           # 最小角速度 (rad/s)
       # Add high threshold velocity for turtlebot 3 issue.
       # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
       acc_lim_x: 2.5                                  # x 加速度限制 (m/s^2)
-      acc_lim_y: 0.0                                  # y 加速度限制 (m/s^2)
+      acc_lim_y: 2.5                                  # y 加速度限制 (m/s^2)
       acc_lim_theta: 3.2                              # 角加速度限制 (rad/s^2)
       decel_lim_x: -2.5                               # x 减速度限制 (m/s^2)
-      decel_lim_y: 0.0                                # y 减速度限制 (m/s^2)
+      decel_lim_y: -2.5                               # y 减速度限制 (m/s^2)
       decel_lim_theta: -3.2                           # 角减速度限制 (rad/s^2)
       vx_samples: 20                                  # x 速度采样点数
       vy_samples: 5                                   # y 速度采样点数
@@ -114,7 +114,7 @@ controller_server:
       angular_granularity: 0.025                      # 角度轨迹检查/插值间隔 (rad)
       transform_tolerance: 0.2                        # TF 变换容忍时间 (s)
       xy_goal_tolerance: 0.25                         # 到达目标的 xy 容差 (m)
-      trans_stopped_velocity: 0.25                    # 判定为停止的平移速度阈值 (m/s)
+      trans_stopped_velocity: 0.1                     # 判定为停止的平移速度阈值 (m/s)
       short_circuit_trajectory_evaluation: True       # 启用短路评估以加速不可行轨迹剔除
       stateful: True                                  # 保持内部状态（如上一次命令）以减少振荡
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]     # 评价器列表，用于评分轨迹
@@ -127,7 +127,7 @@ controller_server:
       GoalDist.scale: 24.0                            # 评价器权重 到目标距离评价器权重
       RotateToGoal.scale: 32.0                        # 评价器权重 面向目标旋转评价器权重
       RotateToGoal.slowing_factor: 5.0                # 评价器参数 面向目标时放慢因子（越大越保守）
-      RotateToGoal.lookahead_time: -1.0               # 评价器参数 保持内部状态（如上一次命令）以减少振荡
+      RotateToGoal.lookahead_time: -1.0               # 评价器参数 不使用前瞻时间
 
 planner_server:
   ros__parameters:
@@ -192,10 +192,10 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.5, 1.0]  # [HW_CONFIG] 全向底盘最大速度 [vx, vy, vth] — 舵轮底盘 vy 与 vx 对称
-    min_velocity: [-0.2, -0.2, -1.0]  # [HW_CONFIG] 全向底盘最小/反向速度 [vx, vy, vth]
-    max_accel: [0.8, 0.8, 1.5]  # [HW_CONFIG] 全向底盘最大加速度 [ax, ay, ath]
-    max_decel: [-0.8, -0.8, -1.5]  # [HW_CONFIG] 全向底盘最大减速度 [ax, ay, ath]
+    max_velocity: [1.5, 1.5, 1.0]  # [HW_CONFIG] 全向底盘最大速度 [vx, vy, vth] — 舵轮底盘 vy 与 vx 对称
+    min_velocity: [-1.5, -1.5, -1.0]  # [HW_CONFIG] 全向底盘最小/反向速度 [vx, vy, vth]
+    max_accel: [2.5, 2.5, 1.5]  # [HW_CONFIG] 全向底盘最大加速度 [ax, ay, ath]
+    max_decel: [-2.5, -2.5, -1.0]  # [HW_CONFIG] 全向底盘最大减速度 [ax, ay, ath]
     odom_topic: "/odom"  # [HW_CONFIG] 里程计话题
     odom_duration: 0.1
     velocity_timeout: 1.0  # [HW_CONFIG] 速度命令超时(秒)，超时后停止
@@ -226,7 +226,7 @@ global_costmap:
       rolling_window: false
       resolution: 0.05  # [HW_CONFIG] 代价地图分辨率(m)，通常等于地图分辨率
       track_unknown_space: true
-      robot_radius: 0.35  # [HW_CONFIG] 机器人外接圆半径(m)，用于膨胀计算
+      robot_radius: 0.2  # [HW_CONFIG] 机器人外接圆半径(m)，用于膨胀计算
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -263,7 +263,7 @@ local_costmap:
       width: 4  # [HW_CONFIG] 局部代价地图宽度(m)，覆盖 LiDAR 有效范围即可
       height: 4  # [HW_CONFIG] 局部代价地图高度(m)
       resolution: 0.05  # [HW_CONFIG] 分辨率(m)，与全局代价地图一致
-      robot_radius: 0.35  # [HW_CONFIG] 机器人外接圆半径(m)
+      robot_radius: 0.20  # [HW_CONFIG] 机器人外接圆半径(m)
       plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
