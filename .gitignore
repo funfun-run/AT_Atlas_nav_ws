@@ -1,0 +1,44 @@
+# colcon build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyi
+*.egg-info/
+dist/
+*.egg
+.mypy_cache/
+.ruff_cache/
+
+# C++ compilation artifacts
+*.o
+*.so
+*.a
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Claude Code (generated)
+.agents/
+.claude/settings.local.json
+skills-lock.json
+.superpowers/

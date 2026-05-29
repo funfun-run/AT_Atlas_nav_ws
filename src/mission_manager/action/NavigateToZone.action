@@ -1,0 +1,6 @@
+string zone_name
+---
+bool success
+string message
+---
+float32 distance_remaining
