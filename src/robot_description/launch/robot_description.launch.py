@@ -7,7 +7,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     package_name = 'robot_description'
-    urdf_name = "整车.SLDASM.urdf"
+    urdf_name = "robot_description.urdf"
 
     ld = LaunchDescription()
     pkg_share = FindPackageShare(package=package_name).find(package_name) 

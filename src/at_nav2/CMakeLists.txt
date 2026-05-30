@@ -2,11 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 project(at_nav2)
 
 find_package(ament_cmake REQUIRED)
-find_package(cartographer_ros REQUIRED)
-find_package(nav2_bringup REQUIRED)
-find_package(nav2_planner REQUIRED)
-find_package(nav2_controller REQUIRED)
-find_package(nav2_costmap_2d REQUIRED)
 
 set(_install_dirs "")
 

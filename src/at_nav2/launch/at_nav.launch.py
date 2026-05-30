@@ -55,6 +55,7 @@ def generate_launch_description():
     # ================================================================
     # controller_server 默认发 /cmd_vel
     # FSM 仲裁后将最终指令发到 /motor_cmd_vel，底盘驱动订阅 /motor_cmd_vel
+    
     bringup_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')

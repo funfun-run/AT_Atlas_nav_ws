@@ -12,7 +12,7 @@ def generate_launch_description():
 
     # ── 1. robot_state_publisher ──
     robot_desc_dir = get_package_share_directory('robot_description')
-    urdf_file = os.path.join(robot_desc_dir, 'urdf', 'omnibot.urdf')
+    urdf_file = os.path.join(robot_desc_dir, 'urdf', 'robot_description.urdf')
 
     with open(urdf_file, 'r') as f:
         robot_desc = f.read()
