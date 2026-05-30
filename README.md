@@ -95,19 +95,6 @@ ros2 service call /fsm_event competition_fsm/srv/FsmEvent \
 
 > **[HW_CONFIG]** 标注的参数需根据实际机器人调整。搜索 `grep -rn "\[HW_CONFIG\]" src/` 定位。
 
-## 开发进度
-
-- [x] 雷达驱动
-- [x] 自定义消息/服务
-- [x] Nav2 参数配置 + 行为树
-- [x] 比赛地图 + 区域定义
-- [x] 项目架构设计文档
-- [x] 实现计划（13 任务全部完成）
-- [x] Cartographer 配置
-- [x] mission_manager 增强（NavigateToZone action + waypoint_loader）
-- [x] competition_fsm 包（状态机 + cmd_vel 仲裁 + /fsm_event service）
-- [x] robot_startup 总 launch
-
 ## 部署前待办
 
 详见 [`docs/TODO-before-deployment.md`](docs/TODO-before-deployment.md)。关键项：

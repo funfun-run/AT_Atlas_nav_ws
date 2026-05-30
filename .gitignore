@@ -41,5 +41,22 @@ htmlcov/
 .agents/
 .claude/*
 !.claude/settings.json
+!.claude/settings.local.json
 skills-lock.json
 .superpowers/
+
+# ROS 2 logs & bags
+*.bag
+*.db3
+.ros/
+
+# Gazebo
+.gazebo/
+*.world~
+*.sdf~
+
+# Docker
+.dockerignore
+
+# Node (external tools)
+node_modules/

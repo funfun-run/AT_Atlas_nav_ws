@@ -98,16 +98,6 @@ map ──► odom ──► base_footprint ──► base_link ──► laser_
 - `docs/superpowers/specs/2026-05-27-competition-nav-architecture-design.md` — Architecture decision record
 - `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md` — Implementation plan (13 tasks)
 
-## Implementation Status
-
-All 13 tasks complete. All packages build and launch successfully.
-
-- [x] Tasks 1-4: at_nav2 config (costmap, Cartographer, launch)
-- [x] Tasks 5-7: mission_manager (NavigateToZone action, waypoint loader, action server)
-- [x] Tasks 8-11: competition_fsm (package, FSM core, fsm_node, entry point)
-- [x] Task 12: robot_startup (total launch)
-- [x] Task 13: full workspace build (7/7 packages)
-
 ## Known Issues (Pre-Deployment)
 
 See `docs/TODO-before-deployment.md` for full checklist. Critical items:
