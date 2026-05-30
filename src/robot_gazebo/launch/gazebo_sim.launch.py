@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+import platform
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
@@ -14,6 +16,18 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     pkg_share = get_package_share_directory('robot_gazebo')
     pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
+
+    # Ensure system Gazebo paths are available. gzserver.launch.py only
+    # appends them if they already exist in the environment (via
+    # GazeboRosPaths.get_paths() + os.environ). Without this, Gazebo
+    # can't find shaders, system models (sun, ground_plane), or plugins.
+    _arch = platform.machine()  # x86_64, aarch64, etc.
+    os.environ.setdefault('GAZEBO_RESOURCE_PATH', '/usr/share/gazebo-11')
+    os.environ.setdefault('GAZEBO_MODEL_PATH', '/usr/share/gazebo-11/models')
+    os.environ.setdefault(
+        'GAZEBO_PLUGIN_PATH',
+        f'/usr/lib/{_arch}-linux-gnu/gazebo-11/plugins'
+    )
 
     # Paths
     world_path = LaunchConfiguration(
@@ -58,11 +72,26 @@ def generate_launch_description():
         launch_arguments={'world': world_path}.items()
     )
 
-    # 2. Gazebo client (GUI)
-    gzclient = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')
-        )
+    # 2. Gazebo client (GUI) — optional
+    #    Launched directly (not via gzclient.launch.py) to skip the
+    #    --gui-client-plugin=libgazebo_ros_eol_gui.so flag, which causes
+    #    a boost shared_ptr assertion crash on NVIDIA + Wayland systems.
+    gui = LaunchConfiguration('gui', default='true')
+    declare_gui = DeclareLaunchArgument(
+        'gui', default_value='true',
+        description='Launch Gazebo GUI client (set to false for headless mode)'
+    )
+
+    gzclient_env = {
+        'GDK_BACKEND': 'x11',           # Force X11 backend (Wayland → XWayland GLX fix)
+        '__GL_SYNC_TO_VBLANK': '0',     # Disable vsync (NVIDIA OGRE workaround)
+    }
+
+    gzclient = ExecuteProcess(
+        cmd=['gzclient'],
+        output='screen',
+        additional_env=gzclient_env,
+        condition=IfCondition(gui),
     )
 
     # 3. robot_state_publisher (TF from /joint_states)
@@ -101,6 +130,7 @@ def generate_launch_description():
     ld.add_action(declare_y_pos)
     ld.add_action(declare_z_pos)
     ld.add_action(declare_world_path)
+    ld.add_action(declare_gui)
 
     ld.add_action(gzserver)
     ld.add_action(gzclient)

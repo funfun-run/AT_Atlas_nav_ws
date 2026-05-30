@@ -19,7 +19,8 @@
 
     <gui fullscreen="0">
       <camera name="orbit_camera">
-        <pose>2 2 5 0 1.2 0.785</pose>
+        <!-- Top-down view of the arena. Robot spawns near (1.0, 0.3). -->
+        <pose>2 2 5 0 1.57 0.785</pose>
         <view_controller>orbit</view_controller>
       </camera>
     </gui>
