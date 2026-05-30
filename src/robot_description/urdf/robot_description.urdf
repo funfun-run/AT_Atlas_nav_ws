@@ -55,7 +55,7 @@
     </collision>
   </link>
   <link
-    name="laser_frame">
+    name="laser">
     <inertial>
       <origin
         xyz="-3.28944182967072E-09 -2.79918769626876E-09 -0.034597418415799"
@@ -95,7 +95,7 @@
     </collision>
   </link>
   <joint
-    name="laser_frame_joint"
+    name="laser_joint"
     type="fixed">
     <origin
       xyz="-0.000482541160108889 0 0.111874126705049"
@@ -103,7 +103,7 @@
     <parent
       link="base_link" />
     <child
-      link="laser_frame" />
+      link="laser" />
     <axis
       xyz="0 0 0" />
   </joint>
