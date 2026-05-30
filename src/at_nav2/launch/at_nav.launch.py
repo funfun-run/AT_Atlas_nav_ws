@@ -35,21 +35,38 @@ def generate_launch_description():
         ],
     )
 
-    # Nav2 bringup — controller_server 默认发 /cmd_vel
+    # ================================================================
+    # Nav2 bringup 可传入参数（由 nav2_bringup/bringup_launch.py 接收）：
+    #
+    #   namespace          - 顶层命名空间                       (default: '')
+    #   use_namespace      - 是否启用命名空间                    (default: 'false')
+    #   slam               - 是否运行 SLAM（建图模式）            (default: 'False')
+    #   map                - map.yaml 地图文件完整路径           (必填，本工程传入 at_map_file)
+    #   use_sim_time       - 使用 Gazebo 仿真时钟               (default: 'false')
+    #   params_file        - Nav2 参数 yaml 文件完整路径         (default: nav2_params.yaml)
+    #   autostart          - 自动启动导航栈                     (default: 'true')
+    #   use_composition    - 使用节点组合（component container）  (default: 'True')
+    #   use_respawn        - 节点崩溃后自动重启                  (default: 'False')
+    #   log_level          - 日志等级                          (default: 'info')
+    #
+    # 以下参数穿透 bringup_launch.py 直达 navigation_launch.py：
+    #   bt_xml             - 自定义 Behavior Tree XML 文件路径   (本工程传入 at_bt_xml)
+    #   use_lifecycle_mgr  - 是否使用生命周期管理                (default: 'True')
+    # ================================================================
+    # controller_server 默认发 /cmd_vel
     # FSM 仲裁后将最终指令发到 /motor_cmd_vel，底盘驱动订阅 /motor_cmd_vel
     bringup_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
         ),
         launch_arguments={
+            'slam': 'false',
             'map': at_map_file,
-            'bt_xml': at_bt_xml,
-            'params_file': at_params_file,
             'use_sim_time': 'false',
+            'params_file': at_params_file,
             'autostart': 'true',
             'use_composition': 'false',
-            'use_lifecycle_mgr': 'true',
-            'slam': 'false',
+            'bt_xml': at_bt_xml,
         }.items(),
     )
 
