@@ -44,6 +44,11 @@ def generate_launch_description():
         'z_pos', default_value='0.1',
         description='Robot spawn Z position (m)'
     )
+    declare_world_path = DeclareLaunchArgument(
+        'world_path',
+        default_value=os.path.join(pkg_share, 'worlds', 'competition.world'),
+        description='Path to Gazebo world file'
+    )
 
     # 1. Gazebo server (loads the world)
     gzserver = IncludeLaunchDescription(
@@ -95,6 +100,7 @@ def generate_launch_description():
     ld.add_action(declare_x_pos)
     ld.add_action(declare_y_pos)
     ld.add_action(declare_z_pos)
+    ld.add_action(declare_world_path)
 
     ld.add_action(gzserver)
     ld.add_action(gzclient)
