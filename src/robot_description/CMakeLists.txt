@@ -5,7 +5,7 @@ find_package(ament_cmake REQUIRED)
 
 set(_install_dirs "")
 
-foreach(dir config launch meshes textures urdf)
+foreach(dir launch meshes textures urdf)
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${dir}")
     list(APPEND _install_dirs "${dir}")
   endif()
