@@ -1,20 +1,20 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16)
 project(robot_description)
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY urdf config
-  DESTINATION share/${PROJECT_NAME})
+set(_install_dirs "")
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  set(ament_cmake_copyright_FOUND TRUE)
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+foreach(dir config launch meshes textures urdf)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${dir}")
+    list(APPEND _install_dirs "${dir}")
+  endif()
+endforeach()
+
+if(_install_dirs)
+  install(DIRECTORY ${_install_dirs}
+  DESTINATION share/${PROJECT_NAME}
+  )
 endif()
 
 ament_package()
