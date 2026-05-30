@@ -14,6 +14,7 @@
     <origin xyz="0.0 0.0 0.033" rpy="0 0 0"/>
   </joint>
 
+  <!-- base link -->
   <link
     name="base_link">
     <inertial>
@@ -54,6 +55,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- laser link -->
   <link
     name="laser">
     <inertial>
@@ -94,6 +97,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- laser joint -->
   <joint
     name="laser_joint"
     type="fixed">
@@ -107,6 +112,8 @@
     <axis
       xyz="0 0 0" />
   </joint>
+
+  <!-- arm0_link -->
   <link
     name="arm0_Link">
     <inertial>
@@ -147,6 +154,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- arm0 joint -->
   <joint
     name="arm0"
     type="continuous">
@@ -160,6 +169,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- arm1_link -->
   <link
     name="arm1_Link">
     <inertial>
@@ -200,6 +211,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- arm1 joint -->
   <joint
     name="arm1"
     type="revolute">
@@ -258,6 +271,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- arm2 joint -->
   <joint
     name="arm2"
     type="revolute">
@@ -276,6 +291,8 @@
       effort="1"
       velocity="3" />
   </joint>
+
+  <!-- arm3_link -->
   <link
     name="arm3_Link">
     <inertial>
@@ -316,6 +333,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- arm3 joint -->
   <joint
     name="arm3"
     type="revolute">
@@ -334,6 +353,8 @@
       effort="1"
       velocity="3" />
   </joint>
+
+  <!-- arm4_link -->
   <link
     name="arm4_Link">
     <inertial>
@@ -374,6 +395,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- arm4 joint -->
   <joint
     name="arm4"
     type="revolute">
@@ -392,6 +415,8 @@
       effort="1"
       velocity="3" />
   </joint>
+
+  <!-- LFs link -->
   <link
     name="LFs_Link">
     <inertial>
@@ -432,6 +457,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- LFs joint -->
   <joint
     name="LFs"
     type="continuous">
@@ -445,6 +472,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- LFd link -->
   <link
     name="LFd_Link">
     <inertial>
@@ -485,6 +514,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- LFd joint -->
   <joint
     name="LFd"
     type="continuous">
@@ -498,6 +529,8 @@
     <axis
       xyz="0 0 -1" />
   </joint>
+
+  <!-- LRs link -->
   <link
     name="LRs_Link">
     <inertial>
@@ -538,6 +571,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- LRs joint -->
   <joint
     name="LRs"
     type="continuous">
@@ -551,6 +586,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- LRd link -->
   <link
     name="LRd_Link">
     <inertial>
@@ -591,6 +628,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- LRd joint -->
   <joint
     name="LRd"
     type="continuous">
@@ -604,6 +643,8 @@
     <axis
       xyz="0 0 -1" />
   </joint>
+
+  <!-- RFs link -->
   <link
     name="RFs_Link">
     <inertial>
@@ -644,6 +685,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- RFs joint -->
   <joint
     name="RFs"
     type="continuous">
@@ -657,6 +700,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- RFd link -->
   <link
     name="RFd_Link">
     <inertial>
@@ -697,6 +742,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- RFd joint -->
   <joint
     name="RFd"
     type="continuous">
@@ -710,6 +757,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- RRs_Link -->
   <link
     name="RRs_Link">
     <inertial>
@@ -750,6 +799,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- RRs joint -->
   <joint
     name="RRs"
     type="continuous">
@@ -763,6 +814,8 @@
     <axis
       xyz="0 0 1" />
   </joint>
+
+  <!-- RRd_Link -->
   <link
     name="RRd_Link">
     <inertial>
@@ -803,6 +856,8 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- RRd joint -->
   <joint
     name="RRd"
     type="continuous">
