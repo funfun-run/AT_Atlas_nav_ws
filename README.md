@@ -21,7 +21,7 @@
 
 | 包 | 语言 | 说明 |
 |----|------|------|
-| `robot_description` | URDF | 机器人模型，[HW_CONFIG] 标注物理尺寸 |
+| `robot_description` | URDF + RViz2 | 机器人模型 + RViz 可视化配置（`rviz2/rviz.rviz`），启动即加载 |
 | `lslidar_driver` | C++ | Leishen 2D 雷达驱动 → `/scan` |
 | `lslidar_msgs` | ROS2 msg/srv | 雷达自定义消息 |
 | `at_nav2` | YAML/Lua/Python | Nav2 配置 + Cartographer 定位 + 比赛地图 |
@@ -46,8 +46,9 @@ robot_description ──► robot_startup (总 launch)
 ## TF 树
 
 ```
-map ──► odom ──► base_link ──► laser_frame
-(Carto)  (底盘)    (URDF)      (URDF 固定关节)
+map ──► odom ──► base_footprint ──► base_link ──► laser_frame
+(Carto)  (底盘)     (地面投影)      (轮轴高度)    (URDF 固定关节)
+                        ↑ ~33 mm (轮半径)
 ```
 
 ## 构建
@@ -61,6 +62,9 @@ source install/setup.bash
 ## 运行
 
 ```bash
+# 仅启动机器人模型 + RViz2（调试 URDF / TF 树）
+ros2 launch robot_description robot_description.launch.py
+
 # 完整导航启动
 ros2 launch robot_startup robot_start.launch.py
 

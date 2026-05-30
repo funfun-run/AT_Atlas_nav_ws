@@ -58,7 +58,7 @@ robot_description ──► robot_startup (top-level bringup)
 
 ### Package Details
 
-- **`robot_description`** — URDF model. Cylinder `base_link` + fixed `laser_frame` joint. [HW_CONFIG] annotations mark physical dimensions for adjustment.
+- **`robot_description`** — URDF model + RViz2 config. `base_footprint` → `base_link` → `laser_frame` chain. `base_footprint` is at ground level (wheel contact), `base_link` is at wheel-axle height (~33mm above ground). Contains `rviz2/rviz.rviz` for pre-configured visualization (TF, RobotModel, LaserScan). Launch file loads this config automatically.
 - **`lslidar_driver`** — Fully implemented C++ Leishen LiDAR driver (X10/CH/CX/LS series). Publishes `sensor_msgs/LaserScan` to `/scan`. **Known issue:** frame_id is `"laser"`, URDF uses `"laser_frame"` — must align before Cartographer/Nav2 can consume scan data (see `docs/TODO-before-deployment.md`).
 - **`lslidar_msgs`** — Custom ROS2 messages and services for lslidar_driver.
 - **`at_nav2`** — Nav2 bringup config + Cartographer pure localization. Contains:
@@ -74,8 +74,9 @@ robot_description ──► robot_startup (top-level bringup)
 ### TF Tree
 
 ```
-map ──► odom ──► base_link ──► laser_frame
-(Carto)  (chassis)  (URDF)      (URDF fixed joint)
+map ──► odom ──► base_footprint ──► base_link ──► laser_frame
+(Carto)  (底盘)     (地面投影)      (轮轴高度)    (URDF fixed joint)
+                        ↑ ~33 mm (wheel radius)
 ```
 
 ### Key Parameters (see `at_nav2_params.yaml` for all [HW_CONFIG] values)
@@ -113,4 +114,5 @@ See `docs/TODO-before-deployment.md` for full checklist. Critical items:
 - Zone names in `ZONE_TO_STATE` don't match map.yaml (待派送区/园区1/园区2 are no_go_zone, not task_area)
 - LiDAR frame_id `"laser"` vs URDF `"laser_frame"` mismatch
 - Missing `.pbstream` map for Cartographer
-- Missing `/odom` + `odom→base_link` TF (odom_driver by other team)
+- Missing `/odom` + `odom→base_footprint` TF (odom_driver by other team)
+- `base_joint` Z offset set to 0.055m, but wheel-radius analysis suggests ~0.033m — verify with actual wheel dimensions before deployment
