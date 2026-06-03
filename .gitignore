@@ -39,9 +39,7 @@ htmlcov/
 
 # Claude Code (generated)
 .agents/
-.claude/*
-!.claude/settings.json
-!.claude/settings.local.json
+.claude/
 skills-lock.json
 .superpowers/
 
