@@ -1,13 +1,11 @@
-map:
-  frame_id: map
-  resolution: 0.02
-  width: 200
-  height: 200
-  origin:
-  - 0.0
-  - 0.0
-  - 0.0
-  image: C:\Users\Administrator.funfun-4060ti\Desktop\ros_map_text-main\maps\arena.pgm
+# ---- 地图元数据（nav2_map_server 标准格式） ----
+image: map.pgm
+resolution: 0.02
+origin: [0.0, 0.0, 0.0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+# ---- 区域与航点（mission_manager 使用） ----
 task_points: []
 zones:
 - name: 货物码垛区B

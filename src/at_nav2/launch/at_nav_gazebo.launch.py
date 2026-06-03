@@ -12,27 +12,7 @@ def generate_launch_description():
 
     at_params_file = os.path.join(at_nav_dir, 'config', 'at_nav2_params.yaml')
     at_map_file = os.path.join(at_nav_dir, 'maps', 'map.yaml')
-
-    # pbstream 地图（需先用 cartographer 建图生成）
-    pbstream_file = os.path.join(at_nav_dir, 'maps', 'map.pbstream')
-
-    # Cartographer pure localization 节点
-    cartographer_node = Node(
-        package='cartographer_ros',
-        executable='cartographer_node',
-        name='cartographer_node',
-        output='screen',
-        parameters=[{'use_sim_time': False}],
-        arguments=[
-            '-configuration_directory', os.path.join(at_nav_dir, 'config'),
-            '-configuration_basename', 'cartographer_localization.lua',
-            '-load_state_filename', pbstream_file,
-        ],
-        remappings=[
-            ('scan', '/scan'),
-            ('odom', '/odom'),
-        ],
-    )
+    rviz_config = os.path.join(at_nav_dir, 'rviz2', 'nav2_gazebo.rviz')
 
     # ================================================================
     # Nav2 bringup 可传入参数（由 nav2_bringup/bringup_launch.py 接收）：
@@ -61,15 +41,24 @@ def generate_launch_description():
         launch_arguments={
             'slam': 'False',
             'map': at_map_file,
-            'use_sim_time': 'False',
+            'use_sim_time': 'True',
             'params_file': at_params_file,
             'autostart': 'True',
             'use_composition': 'False',
         }.items(),
     )
 
+
+    rviz2_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        arguments=['-d', rviz_config]
+    )
+
     ld = LaunchDescription()
-    ld.add_action(cartographer_node)
     ld.add_action(bringup_cmd)
+    ld.add_action(rviz2_node)
 
     return ld
