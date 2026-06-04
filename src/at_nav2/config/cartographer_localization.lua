@@ -45,7 +45,9 @@ POSE_GRAPH.optimize_every_n_nodes = 35
 POSE_GRAPH.constraint_builder.min_score = 0.65
 
 -- [HW_CONFIG] Pure localization mode: does not build new map, only localizes
-TRAJECTORY_BUILDER.pure_localization = true
+TRAJECTORY_BUILDER.pure_localization_trimmer = {
+  max_submaps_to_keep = 3,
+}
 
 -- Load pre-built .pbstream map (path specified in launch file)
 return options

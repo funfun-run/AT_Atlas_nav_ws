@@ -35,9 +35,14 @@
 
 ---
 
-### 3. 缺少 .pbstream 地图文件
+### 3. 缺少真车 .pbstream 地图文件
 
-**问题：** Cartographer pure localization 模式需要预建的 `.pbstream` 地图。当前 `at_nav2/maps/` 下只有 `map.pgm` + `map.yaml`。
+**问题：** Cartographer pure localization 模式需要预建的 `.pbstream` 地图。当前情况：
+
+| 地图 | 状态 | 用途 |
+|------|------|------|
+| `gazebo_map.pbstream` | ✅ 已存在 | Gazebo 仿真导航 |
+| `map.pbstream` (真车) | ❌ 缺失 | 真车定位（比赛必备） |
 
 **操作：**
 1. 在真实机器人上跑一轮 Cartographer SLAM 建图
@@ -172,5 +177,6 @@ echo "URDF link:" && grep 'link name="laser' src/robot_description/urdf/omnibot.
 echo "LiDAR frame_id:" && grep 'frame_id' src/lslidar_driver/config/lslidar_n10p_uart.yaml
 
 # 检查 .pbstream 是否存在
-ls -la src/at_nav2/maps/map.pbstream 2>/dev/null && echo "✅ 存在" || echo "❌ 缺失"
+echo "=== Gazebo 仿真地图 ===" && ls -la src/at_nav2/maps/gazebo_map.pbstream 2>/dev/null && echo "✅ 存在" || echo "❌ 缺失"
+echo "=== 真车地图 ===" && ls -la src/at_nav2/maps/map.pbstream 2>/dev/null && echo "✅ 存在" || echo "❌ 缺失（部署前必须解决）"
 ```

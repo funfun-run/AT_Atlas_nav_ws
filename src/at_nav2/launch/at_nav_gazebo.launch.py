@@ -1,7 +1,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -11,43 +11,72 @@ def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
 
     at_params_file = os.path.join(at_nav_dir, 'config', 'at_nav2_params.yaml')
-    at_map_file = os.path.join(at_nav_dir, 'maps', 'map.yaml')
+    at_map_file = os.path.join(at_nav_dir, 'maps', 'gazebo_map.yaml')
     rviz_config = os.path.join(at_nav_dir, 'rviz2', 'nav2_gazebo.rviz')
+    pbstream_file = os.path.join(at_nav_dir, 'maps', 'gazebo_map.pbstream')
+
+    # Cartographer pure localization 节点
+    cartographer_node = Node(
+        package='cartographer_ros',
+        executable='cartographer_node',
+        name='cartographer_node',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+        arguments=[
+            '-configuration_directory', os.path.join(at_nav_dir, 'config'),
+            '-configuration_basename', 'cartographer_localization_gazebo.lua',
+            '-load_state_filename', pbstream_file,
+        ],
+        remappings=[
+            ('scan', '/scan'),
+            ('odom', '/odom'),
+        ],
+    )
 
     # ================================================================
-    # Nav2 bringup 可传入参数（由 nav2_bringup/bringup_launch.py 接收）：
+    # 架构说明：
+    #   - Cartographer 负责纯定位（map -> odom TF）
+    #   - map_server 独立启动（提供静态地图）
+    #   - navigation_launch.py 只启动 Nav2 导航栈（planner/controller/bt/smoother）
+    #   - 不启动 AMCL（避免与 Cartographer 冲突）
     #
-    #   namespace          - 顶层命名空间                       (default: '')
-    #   use_namespace      - 是否启用命名空间                    (default: 'false')
-    #   slam               - 是否运行 SLAM（建图模式）            (default: 'False')
-    #   map                - map.yaml 地图文件完整路径           (必填，本工程传入 at_map_file)
-    #   use_sim_time       - 使用 Gazebo 仿真时钟               (default: 'false')
-    #   params_file        - Nav2 参数 yaml 文件完整路径         (default: nav2_params.yaml)
-    #   autostart          - 自动启动导航栈                     (default: 'true')
-    #   use_composition    - 使用节点组合（component container）  (default: 'True')
-    #   use_respawn        - 节点崩溃后自动重启                  (default: 'False')
-    #   log_level          - 日志等级                          (default: 'info')
-    #
-    # 以下参数穿透 bringup_launch.py 直达 navigation_launch.py：
-    #   use_lifecycle_mgr  - 是否使用生命周期管理                (default: 'True')
+    # navigation_launch.py 接收参数：
+    #   use_sim_time, params_file, autostart, use_composition,
+    #   use_respawn, log_level, namespace, container_name
     # ================================================================
     # controller_server 默认发 /cmd_vel
     # FSM 仲裁后将最终指令发到 /motor_cmd_vel，底盘驱动订阅 /motor_cmd_vel
     
-    bringup_cmd = IncludeLaunchDescription(
+    # map_server 节点（替代 localization_launch.py 中的 map_server，但不启动 AMCL）
+    map_server_node = Node(
+        package='nav2_map_server',
+        executable='map_server',
+        name='map_server',
+        output='screen',
+        parameters=[at_params_file, {'use_sim_time': True, 'yaml_filename': at_map_file}],
+    )
+
+    # map_server 生命周期管理器
+    map_server_lifecycle_node = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_map',
+        output='screen',
+        parameters=[{'use_sim_time': True, 'autostart': True, 'node_names': ['map_server']}],
+    )
+
+    # 只启动 Nav2 导航栈（不含 AMCL），Cartographer 负责提供 map->odom TF
+    navigation_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
+            os.path.join(nav2_bringup_dir, 'launch', 'navigation_launch.py')
         ),
         launch_arguments={
-            'slam': 'False',
-            'map': at_map_file,
             'use_sim_time': 'True',
             'params_file': at_params_file,
             'autostart': 'True',
             'use_composition': 'False',
         }.items(),
     )
-
 
     rviz2_node = Node(
         package='rviz2',
@@ -58,7 +87,10 @@ def generate_launch_description():
     )
 
     ld = LaunchDescription()
-    ld.add_action(bringup_cmd)
+    ld.add_action(cartographer_node)
+    ld.add_action(map_server_node)
+    ld.add_action(map_server_lifecycle_node)
+    ld.add_action(navigation_cmd)
     ld.add_action(rviz2_node)
 
     return ld

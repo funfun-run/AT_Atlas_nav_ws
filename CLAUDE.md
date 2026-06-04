@@ -18,6 +18,11 @@ source install/setup.bash
 ros2 run mission_manager mission_manager
 ros2 run competition_fsm competition_fsm_node
 
+# Gazebo simulation (no real robot needed)
+ros2 launch robot_gazebo gazebo_sim.launch.py                     # Gazebo + robot spawn
+ros2 launch robot_gazebo gazebo_sim.launch.py gui:=false          # headless mode
+ros2 launch at_nav2 at_nav_gazebo.launch.py                       # Nav2 + Cartographer for Gazebo
+
 # Test FSM state transitions
 python3 -c "
 from competition_fsm.fsm import CompetitionFsm, FsmState
@@ -44,16 +49,23 @@ Manual remote control → Enter start zone → Button/voice switch → Autonomou
 ### Package Dependency Graph
 
 ```
-robot_description ──► robot_startup (top-level bringup)
-                                 │
-         ┌───────────────────────┼────────────────────────┐
-         ▼                       ▼                        ▼
-  lslidar_driver              at_nav2            competition_fsm
- (LSN10 2D LiDAR)    (Cartographer + Nav2)    (state machine)
-         │                       │                        │
-         ▼                       ▼                        ▼
-  lslidar_msgs            mission_manager          (camera/arm
- (custom msg/srv)    (NavigateToZone action)      external teams)
+robot_description (real-robot URDF)
+     │
+     ├──► robot_gazebo (sim URDF + Gazebo plugins + competition.world)
+     │         │
+     │         ▼
+     │    Gazebo sim → /scan, /odom, odom→base_footprint TF
+     │
+     └──► robot_startup (top-level bringup)
+                    │
+    ┌───────────────┼────────────────────────┐
+    ▼               ▼                        ▼
+lslidar_driver   at_nav2            competition_fsm
+(LSN10 2D LiDAR) (Carto + Nav2)    (state machine)
+    │               │                        │
+    ▼               ▼                        ▼
+lslidar_msgs   mission_manager        (camera/arm
+(custom msg/srv) (NavigateToZone)     external teams)
 ```
 
 ### Package Details
@@ -64,11 +76,16 @@ robot_description ──► robot_startup (top-level bringup)
 - **`at_nav2`** — Nav2 bringup config + Cartographer pure localization. Contains:
   - `config/at_nav2_params.yaml` — Nav2 parameters (planner, controller, costmaps, smoother, velocity_smoother)
   - `config/bt_navigator.xml` — Custom behavior tree (ComputePathToPose → FollowPath)
-  - `config/cartographer_localization.lua` — Cartographer pure localization config
-  - `launch/at_nav.launch.py` — Wraps `nav2_bringup/bringup_launch.py` with Cartographer node
-  - `maps/map.yaml` + `map.pgm` — Competition arena map with zone definitions
+  - `config/cartographer_localization.lua` — Cartographer pure localization config (real robot)
+  - `config/cartographer_localization_gazebo.lua` — Cartographer config for Gazebo simulation
+  - `launch/at_nav.launch.py` — Wraps `nav2_bringup/bringup_launch.py` with Cartographer node (real robot)
+  - `launch/at_nav_gazebo.launch.py` — Nav2 + Cartographer launch for Gazebo simulation (uses `gazebo_map.*`)
+  - `maps/map.yaml` + `map.pgm` — Competition arena map with zone definitions (real robot)
+  - `maps/gazebo_map.yaml` + `gazebo_map.pgm` + `gazebo_map.pbstream` — Gazebo simulation map
+  - `rviz2/nav2_gazebo.rviz` — RViz2 config for Gazebo simulation
 - **`mission_manager`** (Python) — `NavigateToZone` action server. Loads waypoints from `map.yaml` zones, wraps `NavigateToPose` action client. Entry point: `mission_manager` console script.
 - **`competition_fsm`** (Python) — Competition state machine. Manages MANUAL↔AUTONOMOUS switching, orchestrates task sequence, arbitrates `/cmd_vel` between teleop and Nav2 (publishes to `/motor_cmd_vel`), hosts `/fsm_event` service for external team communication. Built with `ament_cmake` + `ament_cmake_python` for rosidl service generation.
+- **`robot_gazebo`** (Xacro/SDF/Python) — Gazebo simulation environment. Independent from real-robot packages — provides its own URDF (`robot_sim.xacro`) with simplified collision geometry, `planar_move_plugin` (cmd_vel→odom), `ray_plugin` (2D LiDAR → /scan), and `competition.world` with arena walls derived from `map.yaml` no_go_zones. Launch via `gazebo_sim.launch.py`. **Constraints:** only modifies files in `robot_gazebo/`; other packages are read-only.
 - **`robot_startup`** — Top-level bringup launch. Composes all nodes: LiDAR driver, Cartographer, Nav2, mission_manager, competition_fsm.
 
 ### TF Tree
@@ -95,14 +112,17 @@ map ──► odom ──► base_footprint ──► base_link ──► laser_
 
 ## Design Docs
 
-- `docs/superpowers/specs/2026-05-27-competition-nav-architecture-design.md` — Architecture decision record
-- `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md` — Implementation plan (13 tasks)
+- `docs/superpowers/specs/2026-05-27-competition-nav-architecture-design.md` — Architecture decision record (real robot)
+- `docs/superpowers/plans/2026-05-27-competition-nav-implementation-plan.md` — Implementation plan (13 tasks, real robot)
+- `docs/superpowers/specs/2026-05-30-gazebo-simulation-design.md` — Gazebo simulation architecture design
+- `docs/superpowers/plans/2026-05-30-gazebo-simulation-implementation-plan.md` — Gazebo simulation implementation plan (6 tasks)
 
 ## Known Issues (Pre-Deployment)
 
 See `docs/TODO-before-deployment.md` for full checklist. Critical items:
 - Zone names in `ZONE_TO_STATE` don't match map.yaml (待派送区/园区1/园区2 are no_go_zone, not task_area)
 - LiDAR frame_id `"laser"` vs URDF `"laser_frame"` mismatch
-- Missing `.pbstream` map for Cartographer
+- Missing `.pbstream` map for Cartographer (gazebo_map.pbstream exists for simulation; real-robot map still needed via SLAM)
 - Missing `/odom` + `odom→base_footprint` TF (odom_driver by other team)
 - `base_joint` Z offset set to 0.055m, but wheel-radius analysis suggests ~0.033m — verify with actual wheel dimensions before deployment
+- **Gazebo:** LiDAR frame_id is `"laser"` in both `robot_sim.xacro` and `cartographer_localization_gazebo.lua`, matching the lslidar_driver convention — no mismatch in simulation

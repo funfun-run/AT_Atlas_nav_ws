@@ -38,8 +38,8 @@ def generate_launch_description():
 
     # Launch arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-    x_pos = LaunchConfiguration('x_pos', default='1.0')
-    y_pos = LaunchConfiguration('y_pos', default='0.3')
+    x_pos = LaunchConfiguration('x_pos', default='1.57')
+    y_pos = LaunchConfiguration('y_pos', default='1.4')
     z_pos = LaunchConfiguration('z_pos', default='0.1')
 
     declare_use_sim_time = DeclareLaunchArgument(
@@ -47,11 +47,11 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock'
     )
     declare_x_pos = DeclareLaunchArgument(
-        'x_pos', default_value='1.0',
+        'x_pos', default_value='1.57',
         description='Robot spawn X position (m)'
     )
     declare_y_pos = DeclareLaunchArgument(
-        'y_pos', default_value='0.3',
+        'y_pos', default_value='1.4',
         description='Robot spawn Y position (m)'
     )
     declare_z_pos = DeclareLaunchArgument(

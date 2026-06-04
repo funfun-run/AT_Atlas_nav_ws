@@ -27,20 +27,28 @@
 | `at_nav2` | YAML/Lua/Python | Nav2 配置 + Cartographer 定位 + 比赛地图 |
 | `mission_manager` | Python 3 | `NavigateToZone` action server + 航点加载 |
 | `competition_fsm` | Python 3 | 比赛状态机 + cmd_vel 仲裁 + `/fsm_event` service |
+| `robot_gazebo` | Xacro/SDF/Python | Gazebo 仿真环境（planar_move + LiDAR + 比赛场地） |
 | `robot_startup` | Python | 顶层 bringup launch |
 
 ### 架构
 
 ```
-robot_description ──► robot_startup (总 launch)
-                                │
-        ┌───────────────────────┼────────────────────────┐
-        ▼                       ▼                        ▼
- lslidar_driver             at_nav2            competition_fsm
-      │                  (Carto + Nav2)         (状态机)
-      ▼                       │                        │
- lslidar_msgs           mission_manager       摄像头/机械臂
-                       (NavigateToZone)        (其他团队)
+robot_description (真车 URDF)
+       │
+       ├──► robot_gazebo (仿真 URDF + Gazebo 插件 + 比赛场地)
+       │         │
+       │         ▼
+       │    Gazebo 仿真 ──► /scan, /odom, odom→base_footprint TF
+       │
+       └──► robot_startup (总 launch)
+                    │
+    ┌───────────────┼────────────────────────┐
+    ▼               ▼                        ▼
+lslidar_driver   at_nav2            competition_fsm
+     │        (Carto + Nav2)         (状态机)
+     ▼               │                        │
+lslidar_msgs   mission_manager       摄像头/机械臂
+             (NavigateToZone)        (其他团队)
 ```
 
 ## TF 树
@@ -79,6 +87,42 @@ ros2 service call /fsm_event competition_fsm/srv/FsmEvent \
 ros2 service call /fsm_event competition_fsm/srv/FsmEvent \
   "{event_type: 'pickup_complete', payload: ''}"
 ```
+
+## Gazebo 仿真
+
+离线测试导航功能，无需真实机器人。
+
+```bash
+# 1. 启动 Gazebo 仿真环境（机器人 + 比赛场地）
+ros2 launch robot_gazebo gazebo_sim.launch.py
+
+# 可选参数
+ros2 launch robot_gazebo gazebo_sim.launch.py \
+  x_pos:=1.57 y_pos:=1.4 \
+  gui:=false  # 无头模式
+
+# 2. 启动导航栈（Cartographer 定位 + Nav2）
+ros2 launch at_nav2 at_nav_gazebo.launch.py
+```
+
+### 仿真话题来源
+
+| 话题 | 仿真来源 | 真车来源 |
+|------|----------|----------|
+| `/scan` | Gazebo ray_plugin | `lslidar_driver` |
+| `/odom` | planar_move_plugin | 底盘 odom_driver |
+| `odom→base_footprint` TF | planar_move_plugin | odom_driver |
+| `/cmd_vel` 消费者 | planar_move_plugin（Gazebo 内部） | 底盘电控（硬件） |
+
+### 仿真专用文件
+
+| 文件 | 说明 |
+|------|------|
+| `at_nav2/config/cartographer_localization_gazebo.lua` | Gazebo 专用 Cartographer 定位配置 |
+| `at_nav2/launch/at_nav_gazebo.launch.py` | Gazebo + Nav2 启动文件 |
+| `at_nav2/maps/gazebo_map.pbstream` | Gazebo 仿真用 Cartographer 地图 |
+| `at_nav2/maps/gazebo_map.yaml` + `gazebo_map.pgm` | 仿真 costmap 静态地图 |
+| `at_nav2/rviz2/nav2_gazebo.rviz` | Gazebo 仿真 RViz2 配置 |
 
 ## 关键参数
 
