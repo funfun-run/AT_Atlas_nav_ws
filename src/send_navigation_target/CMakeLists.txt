@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(nav2_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_executable(send_navigation_target src/send_navigation_target.cpp)
 target_include_directories(send_navigation_target PUBLIC
@@ -21,6 +22,7 @@ ament_target_dependencies(
   "rclcpp"
   "rclcpp_action"
   "nav2_msgs"
+  "std_srvs"
 )
 
 install(TARGETS send_navigation_target
