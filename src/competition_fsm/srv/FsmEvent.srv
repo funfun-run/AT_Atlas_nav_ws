@@ -1,5 +1,0 @@
-string event_type  # task_identified | pickup_complete | delivery_complete
-string payload     # JSON, task_identified 时包含任务详情
----
-bool   accepted    # FSM 是否接受此事件
-string message     # 拒绝原因
