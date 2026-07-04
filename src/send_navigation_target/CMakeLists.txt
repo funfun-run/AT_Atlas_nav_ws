@@ -7,35 +7,46 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(nav2_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
-add_executable(send_navigation_target src/send_navigation_target.cpp)
-target_include_directories(send_navigation_target PUBLIC
+# 生成自定义服务 NavigateToTarget.srv
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/NavigateToTarget.srv"
+  DEPENDENCIES geometry_msgs
+)
+
+add_executable(send_nav_target_exe src/send_navigation_target.cpp)
+# CMake target 名不能与 rosidl_generate_interfaces 的 ${PROJECT_NAME} 冲突，
+# 通过 OUTPUT_NAME 将最终二进制文件指定为 send_navigation_target
+set_target_properties(send_nav_target_exe PROPERTIES OUTPUT_NAME send_navigation_target)
+target_include_directories(send_nav_target_exe PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(send_navigation_target PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(send_nav_target_exe PUBLIC c_std_99 cxx_std_17)
 ament_target_dependencies(
-  send_navigation_target
+  send_nav_target_exe
   "rclcpp"
   "rclcpp_action"
   "nav2_msgs"
-  "std_srvs"
+  "geometry_msgs"
 )
 
-install(TARGETS send_navigation_target
+# 链接生成的服务接口到可执行文件
+rosidl_target_interfaces(send_nav_target_exe
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+install(TARGETS send_nav_target_exe
   DESTINATION lib/${PROJECT_NAME})
+
+ament_export_dependencies(rosidl_default_runtime)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
