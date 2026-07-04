@@ -12,10 +12,11 @@
  *
  * 导航点列表在构造函数中硬编码，修改路线时直接改 waypoints_ 即可。
  *
- * 线程模型：
- *   - 主线程：rclcpp::spin() 处理所有 ROS2 回调
- *   - 服务线程：handle_go_next() 在此执行，用 condition_variable 同步等待 action 结果
- *   - action 回调线程：result_callback / feedback_callback，触发后通知服务线程
+ * 线程模型（MultiThreadedExecutor）：
+ *   - Executor 线程池：处理所有 ROS2 回调，不低于 2 个线程
+ *   - 服务线程：handle_go_next() 在某个线程中阻塞等待，不占满整个线程池
+ *   - action 回调线程：result_callback / feedback_callback / goal_response_callback
+ *     在其他线程中执行，触发后通过 condition_variable 通知服务线程
  */
 
 #include "rclcpp/rclcpp.hpp"
@@ -25,6 +26,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 class SendNavigationTarget : public rclcpp::Node
 {
@@ -33,6 +35,11 @@ private:
     using NavigateToPose = nav2_msgs::action::NavigateToPose;
 
     // ============ ROS2 通信对象 ============
+    /// Action 回调的可重入回调组 —— 独立于默认互斥组，使 action 回调能与
+    /// 阻塞中的 handle_go_next() 并发执行。不设此组则所有回调挤在默认互斥组，
+    /// handle_go_next 的 cv_.wait() 会阻塞所有其他回调。
+    rclcpp::CallbackGroup::SharedPtr action_callback_group_;
+
     /// Nav2 导航 action client —— 负责向导航堆栈发送目标点
     rclcpp_action::Client<NavigateToPose>::SharedPtr action_client_;
 
@@ -42,13 +49,13 @@ private:
     // ============ 导航点管理（硬编码） ============
     /// 预定义的导航点列表（x, y），按调用顺序依次执行，方向默认
     const std::vector<std::pair<double, double>> waypoints_ = {
-        {1.0, 1.0},   // 点1
-        {2.0, 3.0},   // 点2
-        {5.0, 2.0},   // 点3
-        {1.0, 1.0},   // 点4
-        {2.0, 3.0},   // 点5
-        {5.0, 2.0},   // 点6
-        {1.0, 1.0},   // 点7
+        {0.0, 0.0},   // 点1
+        {1.5, 1.5},   // 点2
+        {0.0, 0.0},   // 点3
+        {1.5, 1.5},   // 点4
+        {0.0, 0.0},   // 点5
+        {1.5, 1.5},   // 点6
+        {0.0, 0.0},   // 点7
         {2.0, 3.0},   // 点8
         {5.0, 2.0},   // 点9
     };
@@ -98,6 +105,28 @@ private:
         }
         goal_done_ = true;
         cv_.notify_one();  // 唤醒阻塞在 handle_go_next() 中的服务线程
+    }
+
+    /**
+     * @brief Goal 接受/拒绝回调
+     *
+     * async_send_goal 之后，Nav2 action server 首先判断是否接受这个 goal。
+     * 如果 goal_handle 为 nullptr，说明被拒绝（通常是机器人未定位或 TF 异常）。
+     * 此回调保证 handle_go_next 不会在 goal 被静默拒绝时永远阻塞。
+     */
+    void goal_response_callback(
+        std::shared_ptr<rclcpp_action::ClientGoalHandle<NavigateToPose>> goal_handle)
+    {
+        if (!goal_handle) {
+            RCLCPP_ERROR(get_logger(),
+                         "Goal 被服务器拒绝！可能原因：机器人未定位、TF 异常、costmap 未就绪");
+            std::lock_guard<std::mutex> lock(mtx_);
+            goal_success_ = false;
+            goal_done_ = true;
+            cv_.notify_one();
+        } else {
+            RCLCPP_INFO(get_logger(), "Goal 被服务器接受，等待导航完成...");
+        }
     }
 
     /**
@@ -175,20 +204,31 @@ private:
         using std::placeholders::_1;
         using std::placeholders::_2;
         auto opts = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
+        opts.goal_response_callback =
+            std::bind(&SendNavigationTarget::goal_response_callback, this, _1);
         opts.feedback_callback =
             std::bind(&SendNavigationTarget::feedback_callback, this, _1, _2);
         opts.result_callback =
             std::bind(&SendNavigationTarget::result_callback, this, _1);
         this->action_client_->async_send_goal(goal_msg, opts);
 
-        // --- 同步等待导航结果 ---
-        // 阻塞当前服务线程，直到 result_callback 被触发并设置 goal_done_
-        // 主线程的 spin 不受影响，因为服务回调运行在独立的线程池中
+        // --- 同步等待导航结果（带超时保护）---
+        // 阻塞当前服务线程，直到 result_callback 或 goal_response_callback
+        // （goal 被拒时）设置 goal_done_。超时 300 秒作为兜底，防止永久阻塞。
+        // 主线程的 spin 不受影响，因为服务回调运行在独立的线程池中。
+        constexpr auto kTimeout = std::chrono::seconds(300);
         bool success;
         {
             std::unique_lock<std::mutex> lock(mtx_);
-            cv_.wait(lock, [this] { return goal_done_; });
-            success = goal_success_;  // 在锁内读取，确保与写入间的 happens-before 关系
+            bool finished = cv_.wait_for(lock, kTimeout,
+                                         [this] { return goal_done_; });
+            if (!finished) {
+                RCLCPP_ERROR(get_logger(), "导航超时（%lld 秒），放弃等待",
+                             static_cast<long long>(kTimeout.count()));
+                goal_success_ = false;
+                goal_done_ = true;  // 标记完成，防止延迟回调再触发混乱
+            }
+            success = goal_success_;
         }
 
         // --- 导航结束，推进索引 ---
@@ -214,9 +254,15 @@ public:
     explicit SendNavigationTarget(const std::string & name)
         : Node(name)
     {
-        // 创建 action client，连接到 Nav2 的 "navigate_to_pose" action server
+        // 为 action 回调创建独立的可重入回调组
+        // 必须与 handle_go_next（默认互斥组）分离，否则 cv_.wait() 阻塞服务回调时，
+        // action 的 goal_response / feedback / result 回调全部得不到执行。
+        this->action_callback_group_ = this->create_callback_group(
+            rclcpp::CallbackGroupType::Reentrant);
+
+        // 创建 action client，指定使用可重入回调组
         this->action_client_ = rclcpp_action::create_client<NavigateToPose>(
-            this, "navigate_to_pose");
+            this, "navigate_to_pose", action_callback_group_);
 
         // 等待 Nav2 action server 上线（阻塞最多 10 秒）
         if (!this->action_client_->wait_for_action_server(std::chrono::seconds(10))) {
@@ -243,7 +289,14 @@ int main(int argc, char * argv[])
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<SendNavigationTarget>("send_navigation_target");
-    rclcpp::spin(node);
+
+    // 关键：必须用多线程 executor，而不是 rclcpp::spin()（单线程）。
+    // 单线程 executor 下，handle_go_next() 的 cv_.wait() 会阻塞唯一的 spin 线程，
+    // 导致 action 回调（goal_response / feedback / result）永远得不到处理。
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+    executor.spin();
+
     rclcpp::shutdown();
     return 0;
 }

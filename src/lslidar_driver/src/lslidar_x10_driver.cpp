@@ -384,7 +384,8 @@ namespace lslidar_driver {
         output_scan.header.frame_id = cloud_msg.header.frame_id;
         output_scan.angle_min = -M_PI;
         output_scan.angle_max = M_PI;
-        output_scan.time_increment = 0.0; 
+        output_scan.scan_time = 1.0 / N10Plus_hz;
+        output_scan.time_increment = output_scan.scan_time / points_size; 
         output_scan.range_min = min_range; 
         output_scan.range_max = max_range; 
         output_scan.angle_increment = (output_scan.angle_max - output_scan.angle_min) / points_size;

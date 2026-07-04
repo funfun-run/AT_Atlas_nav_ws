@@ -4,6 +4,7 @@ from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
@@ -43,6 +44,18 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
         arguments=['-resolution', resolution, '-publish_period_sec', publish_period_sec])
 
+    robot_desc_dir = get_package_share_directory('robot_description')
+    urdf_file = os.path.join(robot_desc_dir, 'urdf', 'robot_description.urdf')
+
+    with open(urdf_file, 'r') as f:
+        robot_desc = f.read()
+
+    robot_state_pub = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{'robot_description': robot_desc}],
+    )
+
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -55,6 +68,7 @@ def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(cartographer_node)
     ld.add_action(cartographer_occupancy_grid_node)
+    ld.add_action(robot_state_pub)
     ld.add_action(rviz_node)
 
     return ld

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>send_navigation_target 核心机制详解</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --card2: #0f3460;
+    --accent: #e94560;
+    --text: #e0e0e0;
+    --code-bg: #0d1117;
+    --border: #30363d;
+    --green: #3fb950;
+    --yellow: #d2991d;
+    --blue: #58a6ff;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    padding: 2rem 0 1rem;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  h2 {
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.2rem;
+    color: var(--yellow);
+    margin: 1.5rem 0 0.8rem;
+  }
+  p { margin: 0.8rem 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .card2 {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.9em;
+  }
+  p > code, li > code {
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .diagram {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  .note {
+    border-left: 4px solid var(--yellow);
+    padding: 0.5rem 1rem;
+    margin: 1rem 0;
+    background: rgba(210,153,29,0.1);
+    border-radius: 0 6px 6px 0;
+  }
+  .warn {
+    border-left: 4px solid var(--accent);
+    padding: 0.5rem 1rem;
+    margin: 1rem 0;
+    background: rgba(233,68,96,0.1);
+    border-radius: 0 6px 6px 0;
+  }
+  .step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin: 0.8rem 0;
+  }
+  .step-num {
+    background: var(--accent);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  th, td {
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--card2);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .timeline {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0.5rem 1rem;
+    margin: 1rem 0;
+  }
+  .timeline-time {
+    color: var(--blue);
+    font-family: monospace;
+    text-align: right;
+  }
+  .tl-thread {
+    display: inline-block;
+    padding: 0.1em 0.5em;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    font-weight: bold;
+  }
+  .tl-svc { background: var(--purple); color: #fff; }
+  .tl-act { background: var(--green); color: #000; }
+  .tl-main { background: var(--blue); color: #fff; }
+</style>
+</head>
+<body>
+
+<h1>send_navigation_target<br>核心机制详解</h1>
+
+<p style="text-align:center;color:#8b949e;">condition_variable 内部机制 &amp; Action Client 生命周期</p>
+
+<!-- ============================================================ -->
+<h2>第一部分：condition_variable 内部机制</h2>
+
+<h3>1.1 为什么需要 condition_variable？</h3>
+
+<div class="card">
+<p>这个节点里有两个线程在跑，它们需要协作：</p>
+<table>
+  <tr><th>线程</th><th>干什么</th><th>执行的函数</th></tr>
+  <tr>
+    <td><span class="tl-thread tl-svc">服务线程</span></td>
+    <td>收到 FSM 的"走"指令，发 goal 给 Nav2，然后<b>必须等导航结束才能返回响应</b></td>
+    <td><code>handle_go_next()</code></td>
+  </tr>
+  <tr>
+    <td><span class="tl-thread tl-act">Action 回调线程</span></td>
+    <td>Nav2 导航结束后的通知在这里到达</td>
+    <td><code>result_callback()</code></td>
+  </tr>
+</table>
+
+<p><strong>矛盾在哪？</strong> 服务线程必须"等"，但不能用忙等（死循环检查标志），那会浪费 CPU。也不能用 <code>sleep()</code>，因为不知道要等多久。</p>
+
+<p><strong>答案：</strong>操作系统提供的 <code>condition_variable</code>——让线程"睡"在某个条件上，条件满足时由另一个线程唤醒。睡的时候<strong>不占 CPU</strong>。</p>
+</div>
+
+<h3>1.2 三个核心组件</h3>
+
+<div class="card">
+<table>
+  <tr>
+    <th>组件</th><th>类型</th><th>作用</th>
+  </tr>
+  <tr>
+    <td><code>mtx_</code></td>
+    <td><code>std::mutex</code></td>
+    <td>互斥锁，保护 <code>goal_done_</code> 和 <code>goal_success_</code> 不被两个线程同时读写（数据竞争）</td>
+  </tr>
+  <tr>
+    <td><code>cv_</code></td>
+    <td><code>std::condition_variable</code></td>
+    <td>条件变量本体，提供 wait / notify 机制</td>
+  </tr>
+  <tr>
+    <td><code>goal_done_</code></td>
+    <td><code>bool</code></td>
+    <td>条件本身——"导航出结果了吗？"</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>关键关系：</strong>mutex 保护数据，condition_variable 传递"数据变了"的信号。两者总是一起出现，但职责不同。
+</div>
+</div>
+
+<h3>1.3 cv_.wait() 内部发生了什么</h3>
+
+<p>这一行代码背后，内核做了很多事：</p>
+
+<pre><code>cv_.wait(lock, [this] { return goal_done_; });</code></pre>
+
+<p>等价的伪代码展开：</p>
+
+<pre><code>// cv_.wait(lock, predicate) 的内部等价于：
+while (!predicate()) {              // ① 检查条件：goal_done_ == true？
+    // 还没满足 → 需要睡觉等
+
+    // ② 把当前线程加入 cv_ 的等待队列（内核操作）
+    //    从"运行态"切换到"阻塞态"（不占 CPU）
+
+    // ③ 释放 lock（原子操作：解锁 + 开始等待）
+    //    必须释放，否则 result_callback 拿不到锁，永远无法设 goal_done_=true
+
+    // ④ 线程在这里暂停 —— 不消耗任何 CPU 周期
+    //    ... 可能等几毫秒，也可能等几分钟 ...
+
+    // ⑤ 被 cv_.notify_one() 唤醒！重新获取 lock
+    //    操作系统把线程从"阻塞态"切回"就绪态"，调度到 CPU 上
+    //    重新获取 mutex（可能短暂等待 result_callback 释放锁）
+
+    // ⑥ 循环回到 ①，重新检查条件
+}
+// 条件满足，wait 返回，lock 保持锁定状态</code></pre>
+
+<div class="card2">
+<h3>图解：wait 的原子操作链</h3>
+<div class="diagram">
+  服务线程                            Action 回调线程
+  ────────                            ──────────────
+  unique_lock(mtx_) ✓ 已锁
+
+  cv_.wait(lock, pred):
+    ├─ pred() → false
+    ├─ 【原子操作开始】
+    │   ├─ 把自己挂到 cv_ 等待队列
+    │   ├─ 解锁 mtx_          ←─── 现在 result_callback 可以拿锁了！
+    │   └─ 线程阻塞
+    │                                lock_guard(mtx_) ✓ 拿到锁了
+    │                                goal_success_ = true;
+    │                                goal_done_ = true;
+    │                                cv_.notify_one();
+    │                                  ├─ 从等待队列取出服务线程
+    │                                  └─ 标记为"可运行"
+    │                                } // lock_guard 析构，解锁 mtx_
+    │
+    ├─ 【被唤醒】
+    ├─ 重新获取 mtx_ ✓ 已锁    ←─── 现在锁又回到服务线程手里
+    ├─ pred() → true （goal_done_ 已经是 true 了）
+    └─ 返回，lock 保持锁定
+
+  success = goal_success_;  // 安全：锁还拿着
+  } // unique_lock 析构，解锁</div>
+</div>
+
+<h3>1.4 为什么要用带 predicate 的 wait？</h3>
+
+<p>等价写法对比：</p>
+
+<pre><code>// ❌ 不安全的写法（只用单参数 wait）
+cv_.wait(lock);  // 可能被"虚假唤醒"——OS 无缘无故唤醒线程
+success = goal_success_;  // 此时 goal_done_ 可能还是 false！
+
+// ✅ 安全的写法（带 predicate）
+cv_.wait(lock, [this] { return goal_done_; });
+// 即使虚假唤醒，循环会再检查一次 goal_done_，不满足继续睡</code></pre>
+
+<div class="warn">
+  <strong>C++ 标准明确允许虚假唤醒（spurious wakeup）。</strong>这是操作系统调度器的优化行为——提前唤醒线程以避免错过通知窗口。带 predicate 的 wait 自动处理了这种情况。
+</div>
+
+<h3>1.5 notify_one() vs notify_all()</h3>
+
+<table>
+  <tr><th>函数</th><th>唤醒谁</th><th>适用场景</th></tr>
+  <tr>
+    <td><code>cv_.notify_one()</code></td>
+    <td>从等待队列中唤醒<strong>一个</strong>线程（任意选一个）</td>
+    <td>我们的场景：只有一个服务调用在处理</td>
+  </tr>
+  <tr>
+    <td><code>cv_.notify_all()</code></td>
+    <td>唤醒等待队列中<strong>所有</strong>线程</td>
+    <td>多个线程都在等同一个条件，如"系统状态变为 READY"</td>
+  </tr>
+</table>
+
+<div class="note">
+  即使条件变量叫 notify_<strong>one</strong>，也不能假设"恰好有一个线程在等"。如果通知到达时没有线程在 wait，通知<strong>丢失</strong>——这就是为什么必须先设 goal_done_=true 再 notify，且 wait 进来先检查条件（如果通知已丢失，条件已经是 true，wait 直接返回不睡）。
+</div>
+
+<h3>1.6 lock_guard vs unique_lock</h3>
+
+<table>
+  <tr><th></th><th><code>std::lock_guard</code></th><th><code>std::unique_lock</code></th></tr>
+  <tr>
+    <td>功能</td>
+    <td>构造时加锁，析构时解锁<br>不能手动 unlock，不能转移</td>
+    <td>可以手动 lock/unlock<br>可以转移所有权<br>可以被 cv_.wait() 临时解锁</td>
+  </tr>
+  <tr>
+    <td>开销</td>
+    <td>更轻（只是一个 RAII wrapper）</td>
+    <td>多一个 bool 标志跟踪是否持有锁</td>
+  </tr>
+  <tr>
+    <td>我们的代码里</td>
+    <td><code>result_callback</code> 中：进→改标志→出，简单路径</td>
+    <td><code>handle_go_next</code> 中：需要传给 <code>cv_.wait()</code>（wait 要求 unique_lock）</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>第二部分：Action Client 生命周期</h2>
+
+<h3>2.1 什么是 Action？</h3>
+
+<div class="card">
+<p>ROS2 有三种通信方式：</p>
+<table>
+  <tr><th>方式</th><th>模式</th><th>适用场景</th></tr>
+  <tr><td>Topic</td><td>发布/订阅，单向流</td><td>传感器数据、速度指令</td></tr>
+  <tr><td>Service</td><td>请求/响应，一问一答</td><td>快速操作：开关灯、查状态</td></tr>
+  <tr><td><strong>Action</strong></td><td><strong>目标→反馈→结果，可取消</strong></td><td><strong>长时间任务：导航、机械臂运动</strong></td></tr>
+</table>
+
+<p>Nav2 的导航是典型的 Action 场景：发一个目标点，导航过程中持续收到进度反馈（剩余距离），最终收到结果（到达/失败/取消）。整个过程可能持续几十秒甚至几分钟。</p>
+</div>
+
+<h3>2.2 NavigateToPose Action 的三部分</h3>
+
+<div class="card2">
+<div class="diagram">
+  NavigateToPose.action
+  ═══════════════════════
+
+  # 请求（发送端 → Nav2）
+  geometry_msgs/PoseStamped pose    ← 目标位姿
+  ---
+  # 结果（Nav2 → 发送端）
+  std_msgs/Empty result            ← 到达后通知（空结构体）
+  ---
+  # 反馈（Nav2 → 发送端，持续）
+  float32 distance_remaining       ← 剩余路径弧长（米）
+  int16   number_of_recoveries     ← 恢复行为次数</div>
+</div>
+
+<h3>2.3 Action Client 状态机</h3>
+
+<div class="diagram">
+                    ┌─────────────┐
+                    │   不存在     │  初始状态
+                    └──────┬──────┘
+                           │ create_client()
+                           ▼
+                    ┌─────────────┐
+         ┌─────────│   等待就绪   │  wait_for_action_server()
+         │         └──────┬──────┘
+         │                │ server 上线
+         │                ▼
+         │         ┌─────────────┐
+         │         │    就绪     │◄────────────────┐
+         │         └──────┬──────┘                  │
+         │                │ async_send_goal()       │
+         │                ▼                         │
+         │         ┌─────────────┐                  │
+         │    ┌───│   执行中    │  feedback 回调    │
+         │    │   └──────┬──────┘  （反复触发）     │
+         │    │          │                          │
+         │    │    ┌─────┼──────────┐               │
+         │    │    │     │          │               │
+         │    ▼    ▼     ▼          │               │
+         │  ┌───┐ ┌───┐ ┌────┐     │               │
+         │  │成功│ │失败│ │取消 │     │               │
+         │  └─┬─┘ └─┬─┘ └──┬─┘     │               │
+         │    │     │      │        │               │
+         │    └─────┼──────┘        │               │
+         │          │   result_callback 触发        │
+         │          ▼                               │
+         │    ┌──────────┐                         │
+         │    │ 结果已返回 │                        │
+         │    └─────┬────┘                         │
+         │          │                               │
+         └──────────┴───────────────────────────────┘
+               再次 send_goal（同一个 client 可复用）</div>
+
+<h3>2.4 生命周期各阶段详解</h3>
+
+<div class="card">
+<div class="step">
+  <span class="step-num">1</span>
+  <div>
+    <strong>创建 Client</strong>
+    <pre><code>action_client_ = rclcpp_action::create_client&lt;NavigateToPose&gt;(
+    this, "navigate_to_pose");</code></pre>
+    <p>告诉 ROS2："我要用 <code>navigate_to_pose</code> 这个 action"。<br>
+    此时还没有和 Nav2 建立连接，只是一个本地代理对象。<br>
+    底层：发起 ROS2 的 action 服务发现（类似 topic 的 publisher/subscriber 匹配）。</p>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <div>
+    <strong>等待 Server 上线</strong>
+    <pre><code>action_client_->wait_for_action_server(std::chrono::seconds(10));</code></pre>
+    <p>阻塞等待 Nav2 的 action server 注册到 ROS2 图上。<br>
+    返回 <code>true</code>：连接建立，可以发 goal。<br>
+    返回 <code>false</code>：超时，说明 Nav2 没启动。</p>
+    <div class="warn">这个调用是<strong>同步阻塞</strong>的——当前线程会卡在这里最多 10 秒。<br>
+    所以放在构造函数里合适：反正初始化阶段没别的事要做。</div>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <div>
+    <strong>异步发送 Goal</strong>
+    <pre><code>action_client_->async_send_goal(goal_msg, opts);</code></pre>
+    <p><code>async</code> 意味着这个调用<strong>立即返回</strong>，不等待导航完成。<br>
+    它返回一个 future，但我们不拿它——回调已经绑在 opts 里了。</p>
+    <p>底层发生了什么：</p>
+    <ol>
+      <li>序列化 goal_msg → 发给 Nav2 的 action server</li>
+      <li>Nav2 接受 goal 后回调 <code>goal_response_callback</code>（我们没绑这个，因为 result_callback 已经覆盖了"是否被拒"的判断）</li>
+      <li>Nav2 开始规划+控制，定期发送反馈 → 触发 <code>feedback_callback</code></li>
+      <li>导航结束 → 发送结果 → 触发 <code>result_callback</code></li>
+    </ol>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">4</span>
+  <div>
+    <strong>Client 复用</strong>
+    <p>同一个 action client 对象可以多次调用 <code>async_send_goal()</code>——每次发新 goal 就行。<br>
+    不需要重建。<code>async_send_goal</code> 返回后，旧的 GoalHandle 和新的独立存在。</p>
+    <div class="note">前提是上一个 goal 已经出结果。如果上一个还在执行中又发新的，Nav2 默认会<strong>抢占</strong>——取消旧目标，执行新目标。这个行为由 Nav2 的 BT navigator 决定。</div>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">5</span>
+  <div>
+    <strong>Client 销毁</strong>
+    <p>Node 析构时会自动清理 action client。如果还有 goal 在执行中，会发送取消请求。<br>
+    不需要手动 <code>destroy_client()</code>，<code>SharedPtr</code> 的引用计数归零即析构。</p>
+  </div>
+</div>
+</div>
+
+<h3>2.5 GoalHandle 的作用</h3>
+
+<div class="card">
+<p><code>ClientGoalHandle</code> 是"一次导航任务"的句柄。它的生命周期是：<br>
+<code>async_send_goal</code> 创建 → result 回调后仍存活（回调参数是它的引用）→ 回调返回后销毁。</p>
+
+<p>通过 GoalHandle 可以：</p>
+<ul>
+  <li>查询 goal 状态（ACCEPTED / EXECUTING / SUCCEEDED / ABORTED / CANCELED）</li>
+  <li>主动取消（<code>async_cancel_goal(goal_handle)</code>）</li>
+  <li>获取 goal_id（唯一标识）</li>
+</ul>
+
+<p>我们的代码里只用了 result 回调的参数（它包含了 GoalHandle 和 result），没有存 GoalHandle 的引用——因为不需要取消功能。</p>
+</div>
+
+<h3>2.6 回调线程模型</h3>
+
+<div class="card2">
+<p>这是初学者最容易踩的坑：<strong>action 的回调在哪个线程执行？</strong></p>
+
+<div class="diagram">
+  rclcpp::spin(node)  ← 主线程
+       │
+       ├──► 检查服务请求队列 ──► 有请求 ──► 【线程池线程】执行 handle_go_next()
+       │
+       ├──► 检查 action 反馈队列 ──► 有反馈 ──► 【线程池线程】执行 feedback_callback()
+       │
+       └──► 检查 action 结果队列 ──► 有结果 ──► 【线程池线程】执行 result_callback()</div>
+
+<p><strong>关键结论：</strong></p>
+<ul>
+  <li><code>handle_go_next()</code> 和 <code>result_callback()</code> 在不同线程中执行</li>
+  <li>它们共享 <code>goal_done_</code>、<code>goal_success_</code> —— 所以必须用 mutex 保护</li>
+  <li><code>spin()</code> 在主线程中，负责分派消息到回调。服务回调虽然阻塞，但它在独立线程，不影响 spin 分派 action 回调</li>
+</ul>
+
+<div class="warn">
+  <strong>如果不用条件变量，而是这样写会怎样？</strong>
+  <pre><code>// ❌ 死循环忙等
+while (!goal_done_) { /* 空转 */ }
+// 问题：while 循环抢占了 CPU，spin 得不到调度，result_callback 永远不会被调用
+// → 死锁！goal_done_ 永远为 false</code></pre>
+
+  <pre><code>// ❌ 用 sleep
+while (!goal_done_) { std::this_thread::sleep_for(100ms); }
+// 能工作但很差：延迟 100ms，高频反馈场景完全不合适</code></pre>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>第三部分：完整时序图</h2>
+
+<div class="diagram">
+时间轴：condition_variable 如何连接服务线程和 action 回调线程
+
+  服务线程池                    主线程 (spin)                  Action 内部线程
+  ──────────                    ────────────                  ───────────────
+  handle_go_next() 被调用
+  │
+  ├─ 取 waypoints_[idx]
+  ├─ 构造 Goal
+  ├─ lock(mtx_)
+  │   goal_done_ = false
+  │   goal_success_ = false
+  ├─ unlock(mtx_)                  ← 花括号作用域结束
+  │
+  ├─ async_send_goal() ──────────────────────────────────────► Nav2 收到 goal
+  │                                                              │
+  ├─ lock(mtx_)                                                  │ 规划路径...
+  │   cv_.wait():                                                │
+  │     pred() → false                                           │
+  │     解锁 mtx_          ←── 让出锁                            │
+  │     线程阻塞 💤                                               │ 开始执行...
+  │                                                              │
+  │                            rclcpp::spin() 循环...            │
+  │                                                              │ feedback × 1
+  │                                                              ├─ feedback_callback()
+  │                                                              │    "剩余 5.32m"
+  │                                                              │
+  │                                                              │ feedback × 2
+  │                                                              ├─ feedback_callback()
+  │                                                              │    "剩余 3.17m"
+  │                                                              │
+  │                                                              │ ... robot 在移动 ...
+  │                                                              │
+  │                                                              │ 到达目标！
+  │                                                              ├─ lock(mtx_)
+  │                                                              │   goal_success_ = true
+  │                                                              │   goal_done_ = true
+  │                                                              │   cv_.notify_one()
+  │                                                              ├─ unlock(mtx_)
+  │                                                              │
+  │     被唤醒！                                                   │
+  │     重新获取 mtx_   ←── 锁回来了                              │
+  │     pred() → true ✓                                          │
+  │   cv_.wait() 返回                                            │
+  │   success = goal_success_  (true)                            │
+  ├─ unlock(mtx_)                                                 │
+  │
+  ├─ current_index_++ (0 → 1)
+  ├─ response->success = true
+  ├─ response->message = "成功到达"
+  └─ return  ← FSM 收到响应</div>
+
+<!-- ============================================================ -->
+<h2>第四部分：常见问题</h2>
+
+<div class="card">
+<h3>Q1: 如果 Nav2 导航失败（ABORTED），服务会返回什么？</h3>
+<p><code>response->success = false</code>，<code>response->message = "导航失败"</code>。<br>
+FSM 可以据此决定：重试当前点、跳过当前点、或切换到遥控模式。</p>
+</div>
+
+<div class="card">
+<h3>Q2: 如果在 wait 期间又收到一个服务调用会怎样？</h3>
+<p>ROS2 服务默认使用线程池处理请求。如果上一个 <code>handle_go_next()</code> 还在 wait，新请求会在<strong>另一个线程池线程</strong>中执行新的 <code>handle_go_next()</code>——两个线程同时操作 <code>current_index_</code> 和 <code>action_client_</code>，会导致<strong>数据竞争</strong>。</p>
+<div class="warn"><strong>当前代码的保护：</strong>服务是串行调用的——FSM 知道要等响应回来再调下一次。如果 FSM 被错误地连续调两次，会有并发问题。生产代码应加 <code>std::atomic&lt;bool&gt; busy_</code> 或使用互斥锁保护整个 handle_go_next()。</div>
+</div>
+
+<div class="card">
+<h3>Q3: feedback_callback 需要加锁吗？</h3>
+<p>不需要。它只读 <code>feedback->distance_remaining</code>，不读写任何共享成员变量。<code>get_logger()</code> 本身是线程安全的。</p>
+</div>
+
+<div class="card">
+<h3>Q4: 为什么 result_callback 不用 unique_lock？</h3>
+<p>因为它不需要传给 cv_.wait()（那是服务线程的事），也不需要手动 unlock。<code>lock_guard</code> 更轻量：没有额外的 bool 标志，调用栈更小。能用 lock_guard 就不用 unique_lock——这是 C++ 最佳实践。</p>
+</div>
+
+</body>
+</html>

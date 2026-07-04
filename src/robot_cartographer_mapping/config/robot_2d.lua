@@ -5,7 +5,7 @@ options = {
   map_builder = MAP_BUILDER,
   trajectory_builder = TRAJECTORY_BUILDER,
   map_frame = "map",
-  tracking_frame = "base_link",
+  tracking_frame = "base_footprint",
   published_frame = "odom",
   odom_frame = "odom",
   provide_odom_frame = false,                 -- true改为false，不用提供里程计数据
@@ -30,15 +30,24 @@ options = {
 
 MAP_BUILDER.use_trajectory_builder_2d = true-- false改为true，启动2D SLAM
 
-TRAJECTORY_BUILDER_2D.min_range = 0.4-- 0改成0.4,比机器人半径小的都忽略掉
-TRAJECTORY_BUILDER_2D.max_range = 3.5-- 30改成3.5,限制在雷达最大扫描范围内，越小一般越精确些
-TRAJECTORY_BUILDER_2D.missing_data_ray_length = 3.-- 5改成3,传感器数据超出有效范围最大值
-TRAJECTORY_BUILDER_2D.use_imu_data = false-- true改成false,不使用IMU数据，大家可以开启，然后对比下效果
-TRAJECTORY_BUILDER_2D.use_online_correlative_scan_matching = true -- false改成true,使用实时回环检测来进行前端的扫描匹配
-TRAJECTORY_BUILDER_2D.motion_filter.max_angle_radians = math.rad(0.1)-- 1.0改成0.1,提高对运动的敏感度
+TRAJECTORY_BUILDER_2D.min_range = 0.4 -- 0改成0.4,比机器人半径小的都忽略掉
+TRAJECTORY_BUILDER_2D.max_range = 8.0-- 30改成3.5,限制在雷达最大扫描范围内，越小一般越精确些
+TRAJECTORY_BUILDER_2D.missing_data_ray_length = 8.0-- 5改成3,传感器数据超出有效范围最大值
+TRAJECTORY_BUILDER_2D.use_imu_data = true-- true改成false,不使用IMU数据，大家可以开启，然后对比下效果
+TRAJECTORY_BUILDER_2D.motion_filter.max_angle_radians = 0.1-- 1.0改成0.1,提高对运动的敏感度
 
-POSE_GRAPH.constraint_builder.min_score = 0.65-- 0.55改成0.65,Fast csm的最低分数，高于此分数才进行优化。
-POSE_GRAPH.constraint_builder.global_localization_min_score = 0.7--0.6改成0.7,全局定位最小分数，低于此分数则认为目前全局定位不准确
+TRAJECTORY_BUILDER_2D.use_online_correlative_scan_matching = true -- false改成true,使用实时回环检测来进行前端的扫描匹配
+TRAJECTORY_BUILDER_2D.real_time_correlative_scan_matcher.linear_search_window = 0.2
+TRAJECTORY_BUILDER_2D.real_time_correlative_scan_matcher.angular_search_window = math.rad(20.)
+TRAJECTORY_BUILDER_2D.real_time_correlative_scan_matcher.translation_delta_cost_weight = 10.
+TRAJECTORY_BUILDER_2D.real_time_correlative_scan_matcher.rotation_delta_cost_weight = 1.
+
+TRAJECTORY_BUILDER_2D.ceres_scan_matcher.occupied_space_weight = 20.
+TRAJECTORY_BUILDER_2D.ceres_scan_matcher.translation_weight = 10.
+TRAJECTORY_BUILDER_2D.ceres_scan_matcher.rotation_weight = 60.
+
+POSE_GRAPH.constraint_builder.min_score = 0.55-- 0.55改成0.65,Fast csm的最低分数，高于此分数才进行优化。
+POSE_GRAPH.constraint_builder.global_localization_min_score = 0.6--0.6改成0.7,全局定位最小分数，低于此分数则认为目前全局定位不准确
 
 -- 设置0可关闭全局SLAM
 -- POSE_GRAPH.optimize_every_n_nodes = 0

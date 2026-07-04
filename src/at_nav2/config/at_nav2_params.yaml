@@ -84,8 +84,8 @@ controller_server:
     general_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       stateful: True  # 保持内部状态以避免振荡
-      xy_goal_tolerance: 0.10   # [HW_CONFIG] 到达目标的位置容差(m)，比赛可适当收紧
-      yaw_goal_tolerance: 0.25  # [HW_CONFIG] 到达目标的角度容差(rad)
+      xy_goal_tolerance: 0.25   # [HW_CONFIG] 到达目标的位置容差(m)，比赛可适当收紧
+      yaw_goal_tolerance: 6.28  # [HW_CONFIG] 到达目标的角度容差(rad)
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"            # 使用 DWB 本地规划器（Dynamic Window Approach）
       debug_trajectory_details: True                 # 是否输出/发布轨迹调试信息
@@ -93,7 +93,7 @@ controller_server:
       min_vel_y: -1.5                                # 最小侧向速度 (m/s)，全向底盘有效
       max_vel_x: 1.5                                 # 最大前进速度 (m/s)
       max_vel_y: 1.5                                 # 最大侧向速度 (m/s)，全向底盘有效
-      max_vel_theta: 1.0                             # 最大角速度 (rad/s)
+      max_vel_theta: 3.0                             # 最大角速度 (rad/s)
       min_speed_xy: 0.0                              # 最小平面速度 (m/s)
       max_speed_xy: 2.0                              # 最大平面速度 (m/s)
       min_speed_theta: 0.0                           # 最小角速度 (rad/s)
@@ -112,7 +112,7 @@ controller_server:
       linear_granularity: 0.05                        # 线性轨迹检查/插值间隔 (m)
       angular_granularity: 0.025                      # 角度轨迹检查/插值间隔 (rad)
       transform_tolerance: 0.2                        # TF 变换容忍时间 (s)
-      xy_goal_tolerance: 0.10                         # 到达目标的 xy 容差 (m)
+      xy_goal_tolerance: 0.25                         # 到达目标的 xy 容差 (m)
       trans_stopped_velocity: 0.1                     # 判定为停止的平移速度阈值 (m/s)
       short_circuit_trajectory_evaluation: True       # 启用短路评估以加速不可行轨迹剔除
       stateful: True                                  # 保持内部状态（如上一次命令）以减少振荡
@@ -170,7 +170,7 @@ behavior_server:
     robot_base_frame: base_link
     transform_tolerance: 0.2
     simulate_ahead_time: 2.0
-    max_rotational_vel: 1.0  # [HW_CONFIG] 恢复行为最大旋转速度(rad/s)
+    max_rotational_vel: 3.0  # [HW_CONFIG] 恢复行为最大旋转速度(rad/s)
     min_rotational_vel: 0.2
     rotational_acc_lim: 1.5  # [HW_CONFIG] 旋转加速度限制(rad/s^2)
 
@@ -191,8 +191,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [1.5, 1.5, 1.0]  # [HW_CONFIG] 全向底盘最大速度 [vx, vy, vth] — 舵轮底盘 vy 与 vx 对称
-    min_velocity: [-1.5, -1.5, -1.0]  # [HW_CONFIG] 全向底盘最小/反向速度 [vx, vy, vth]
+    max_velocity: [1.5, 1.5, 3.0]  # [HW_CONFIG] 全向底盘最大速度 [vx, vy, vth] — 舵轮底盘 vy 与 vx 对称
+    min_velocity: [-1.5, -1.5, -3.0]  # [HW_CONFIG] 全向底盘最小/反向速度 [vx, vy, vth]
     max_accel: [2.5, 2.5, 1.5]  # [HW_CONFIG] 全向底盘最大加速度 [ax, ay, ath]
     max_decel: [-2.5, -2.5, -1.0]  # [HW_CONFIG] 全向底盘最大减速度 [ax, ay, ath]
     odom_topic: "/odom"  # [HW_CONFIG] 里程计话题
